@@ -1,13 +1,11 @@
-<div class="container mt-5">
-  <h1 class="text-primary">Smart Shift Planner</h1>
+<div class="container text-center mt-5 pt-4">
+  <h1 class="mb-4">Smart Shift Planner</h1>
 
-  <% if user_signed_in? %>
-    <p>ログイン中：<%= current_user.name %> さん</p>
-    <%= button_to "ログアウト", destroy_user_session_path, 
-                  method: :delete,
-                  class: "btn btn-outline-danger" %>
-  <% else %>
-    <%= link_to "新規登録", new_user_registration_path %>
-    <%= link_to "ログイン", new_user_session_path %>
-  <% end %>
+  <div class="p-4 bg-light rounded d-flex justify-content-center align-items-center text-center mx-auto" style="max-width: 500px; height: 150px;">
+    <p class="mb-0">
+      Smart Shift Plannerは<br>
+      看護小規模多機能居宅介護施設のシフト作成を、<br>
+      お手伝いするサービスです。
+    </P>
+  </div>
 </div>
