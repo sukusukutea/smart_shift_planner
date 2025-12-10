@@ -1,0 +1,24 @@
+ja:
+  activerecord:
+    attributes:
+      user:
+        name: "名前"
+        organization_name: "事業所名"
+        email: "メールアドレス"
+        password: "パスワード"
+        password_confirmation: "パスワード（確認用）"
+    errors:
+      models:
+        user:
+          attributes:
+            name:
+              blank: "を入力してください"
+            organization_name:
+              blank: "を入力してください"
+            email:
+              blank: "を入力してください"
+              taken: "はすでに使用されています"
+            password:
+              blank: "を入力してください"
+            password_confirmation:
+              confirmation: "がパスワードと一致していません"
