@@ -12,9 +12,17 @@ class Users::RegistrationsController < Devise::RegistrationsController
   # POST /resource
   def create
     raw_params = sign_up_params
+    build_resource(raw_params)
+
+    unless resource.valid?
+      clean_up_passwords resource
+      set_minimum_password_length
+      return respond_with resource, status: :unprocessable_entity do |format|
+        format.html { render :new, status: :unprocessable_entity }
+      end
+    end
+
     org_name = raw_params[:organization_name]&.strip
-    user_params = raw_params.except(:organization_name)
-    build_resource(user_params)
 
     ActiveRecord::Base.transaction do
       # 事業所を作成
@@ -40,13 +48,14 @@ class Users::RegistrationsController < Devise::RegistrationsController
       set_minimum_password_length
       respond_with resource
     end
+
   rescue ActiveRecord::RecordInvalid => e
     # 事業所orユーザー作成で失敗した場合はフォームを再表示
-    flash.now[:alert] = "登録に失敗しました: #{e.message}"
+    self.resource = e.record if e.respond_to?(:record) && e.record.is_a?(User) # 失敗したレコードをresourceに載せる
     clean_up_passwords resource # パスワードのフィールドをリセットして、再表示されないようにする処理
     set_minimum_password_length
-    respond_with resource do |format| # エラー付きのresourceを持って、新規登録フォームを再表示する
-      format.html { render :new, status: :unprocessable_entity }
+    respond_with resource, status: :unprocessable_entity do |format| # エラー付きのresourceを持って、新規登録フォームを再表示する
+      format.html { render :new, status: :unprocessable_entity } # unprocessable_entityはHTTP ステータスコード（422）のこと
     end
   end
 

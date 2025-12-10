@@ -39,6 +39,21 @@
         </div>
       </div>
     </nav>
+
+    <div class="container mt-3">
+      <% flash.each do |key, message| %> <%# keyはフラッシュメッセージの種類（:notice / :alert / :error など）%>
+        <% bs_class =
+          case key.to_sym
+          when :notice then "alert-success"
+          when :alert then "alert-danger"
+          else "alert-info"
+          end %>
+        <div class="alert <%= bs_class %> alert-dismissible fade show text-center" role="alert">
+          <%= message %>
+        </div>
+      <% end %>
+    </div>
+
     <%= yield %>
   </body>
 </html>
