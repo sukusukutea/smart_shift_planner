@@ -1,3 +1,6 @@
+<% staffs_index_active = current_page?(staffs_path) %>
+<% staffs_new_active   = current_page?(new_staff_path) %>
+
 <div class="d-flex flex-column min-vh-100 p-3"
      style="background-color: #e6f0f0;">
 
@@ -8,8 +11,17 @@
     </div>
 
     <div class="d-flex flex-column gap-2 mb-5 align-items-start">
-      <%= link_to "職員一覧", staffs_path, class: "btn btn-outline-secondary btn-sm text-start px-3 d-inline-block", style: "background-color:#ffffff; border:1px solid #97cdf3; color:#333; width:auto;" %>
-      <%= link_to "職員新規登録", new_staff_path,  class: "btn btn-outline-secondary btn-sm text-start px-3 d-inline-block", style: "background-color:#ffffff; border:1px solid #97cdf3; color:#333;" %>
+      <%= link_to "職員一覧",
+                  staffs_path,
+                  class: "btn btn-outline-secondary btn-sm text-start px-3 d-inline-block",
+                  style: "border:1px solid #97cdf3; width:auto; " +
+                         (staffs_index_active ? "background-color:#97cdf3; color:#fff;" : "background-color:#ffffff; color:#333;") %>
+
+      <%= link_to "職員新規登録",
+                  new_staff_path,
+                  class: "btn btn-outline-secondary btn-sm text-start px-3 d-inline-block",
+                  style: "border:1px solid #97cdf3; " +
+                         (staffs_new_active ? "background-color:#97cdf3; color:#fff;" : "background-color:#ffffff; color:#333;") %>
     </div>
   </div>
 
