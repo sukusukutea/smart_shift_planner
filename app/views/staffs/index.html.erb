@@ -1,2 +1,62 @@
-<h1>Staffs#index</h1>
-<p>Find me in app/views/staffs/index.html.erb</p>
+<div class="container-fluid">
+  <div class="row min-vh-100">
+    <div class="col-md-3 col-lg-2 p-0">
+      <%= render "layouts/sidebar" %>
+    </div>
+
+    <div class="col-md-9 col-lg-10 py-4">
+      <div class="mx-auto" style="width: 90%; min-width: 700px;">
+
+        <div class="d-flex align-items-center mb-5">
+          <h1 class="h4 fw-bold mb-0 me-3">職員一覧</h1>
+          <%= link_to "+職員新規登録", new_staff_path, class: "btn btn-secondary btn-sm py-1 px-2" %>
+        </div>
+
+        <table class="table table-sm table-bordered align-middle">
+            <thead>
+              <tr class="text-center">
+                <th style="width: 80px; background-color: #e6f0f0;">編集</th>
+                <th style="background-color: #e6f0f0;">スタッフ名</th>
+                <th style="background-color: #e6f0f0;">職種</th>
+                <th style="background-color: #e6f0f0;">早番</th>
+                <th style="background-color: #e6f0f0;">遅番</th>
+                <th style="background-color: #e6f0f0;">夜勤</th>
+                <th style="background-color: #e6f0f0;">訪問</th>
+                <th style="background-color: #e6f0f0;">運転</th>
+                <th style="background-color: #e6f0f0;">調理</th>
+              </tr>
+            </thead>
+
+            <tbody class="text-center">
+            <% if @staffs.any? %>
+                <% @staffs.each do |staff| %>
+                <tr>
+                  <td>
+                    <%= link_to "編集", "#" %>
+                  </td>
+
+                  <td><%= "#{staff.last_name} #{staff.first_name}" %></td>
+                  <td><%= staff.occupation&.name || "未設定" %></td>
+
+                  <td><%= staff.can_early ? "可" : "不可" %></td>
+                  <td><%= staff.can_late ? "可" : "不可" %></td>
+                  <td><%= staff.can_night ? "可" : "不可" %></td>
+
+                  <td><%= staff.can_visit ? "可" : "不可" %></td>
+                  <td><%= staff.can_drive ? "可" : "不可" %></td>
+                  <td><%= staff.can_cook ? "可" : "不可" %></td>
+                </tr>
+                <% end %>
+            <% else %>
+                <tr>
+                <td colspan="2" class="text-center text-muted py-4">
+                    職員が登録されていません。「+職員新規登録」から登録してください。
+                </td>
+                </tr>
+            <% end %>
+            </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
