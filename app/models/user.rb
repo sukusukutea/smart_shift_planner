@@ -1,5 +1,6 @@
 class User < ApplicationRecord
   belongs_to :organization, optional: true # resource.vaild?でorganization_nameでチェックが走るのでoptinal:trueでOK
+  has_many :staffs, dependent: :destroy
 
   attr_accessor :organization_name
 

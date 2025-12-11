@@ -1,0 +1,162 @@
+<div class="container-fluid">
+  <div class="row min-vh-100">
+    <div class="col-md-3 col-lg-2 p-0">
+      <%= render "layouts/sidebar" %>
+    </div>
+
+    <div class="col-md-9 col-lg-10">
+      <div class="container py-4">
+        <div class="row">
+          <div class="col-lg-8 mx-auto">
+
+            <div class="d-flex align-items-center mb-5">
+              <h1 class="h4 fw-bold mb-0 me-3">職員新規登録</h1>
+              <%= link_to "職員一覧へ移動", staffs_path, class: "btn btn-secondary btn-sm py-1 px-2" %>
+            </div>
+
+            <% if @staff.errors.any? %>
+              <div class="alert alert-danger">
+                <ul class="mb-0">
+                  <% @staff.errors.full_messages.each do |msg| %>
+                    <li><%= msg %></li>
+                  <% end %>
+                </ul>
+              </div>
+            <% end %>
+
+            <%= form_with model: @staff, local: true do |f| %>
+              <div class="row mb-3">
+                <label class="col-md-2 col-form-label fw-bold">名前</label>
+                <div class="col-md-3 mb-2 mb-md-0">
+                  <div class="input-group">
+                    <span class="input-group-text">姓</span>
+                    <%= f.text_field :last_name, class: "form-control" %>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="input-group">
+                    <span class="input-group-text">名</span>
+                    <%= f.text_field :first_name, class: "form-control" %>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row mb-3">
+                <label class="col-md-2 col-form-label fw-bold">なまえ</label>
+                <div class="col-md-3 mb-2 mb-md-0">
+                  <div class="input-group">
+                    <span class="input-group-text">せい</span>
+                    <%= f.text_field :last_name_kana, class: "form-control" %>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="input-group">
+                    <span class="input-group-text">めい</span>
+                    <%= f.text_field :first_name_kana, class: "form-control" %>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row mb-4">
+                <label class="col-md-2 col-form-label fw-bold">職種</label>
+                <div class="col-md-3">
+                  <%= f.collection_select :occupation_id,
+                                          @occupations,
+                                          :id,
+                                          :name,
+                                          { prompt: "選択してください" },
+                                          { class: "form-select" } %>
+                </div>
+              </div>
+
+              <div class="row mb-4">
+                <label class="col-md-2 col-form-label fw-bold">勤務可否</label>
+                <div class="col-md-10">
+                  <div class="row mb-2 align-items-center">
+                    <div class="col-3 col-md-2">日勤</div>
+                    <div class="col-9 col-md-10">
+                      <div class="form-check form-check-inline">
+                        <%= f.radio_button :can_day, true, id: "staff_can_day_true", class: "form-check-input" %>
+                        <label class="form-check-label" for="staff_can_day_true">可</label>
+                      </div>
+                      <div class="form-check form-check-inline">
+                        <%= f.radio_button :can_day, false, id: "staff_can_day_false", class: "form-check-input" %>
+                        <label class="form-check-label" for="staff_can_day_false">不可</label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="row mb-2 align-items-center">
+                    <div class="col-3 col-md-2">早番</div>
+                    <div class="col-9 col-md-10">
+                      <div class="form-check form-check-inline">
+                        <%= f.radio_button :can_early, true, id: "staff_can_early_true", class: "form-check-input" %>
+                        <label class="form-check-label" for="staff_can_early_true">可</label>
+                      </div>
+                      <div class="form-check form-check-inline">
+                        <%= f.radio_button :can_early, false, id: "staff_can_early_false", class: "form-check-input" %>
+                        <label class="form-check-label" for="staff_can_early_false">不可</label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="row mb-2 align-items-center">
+                    <div class="col-3 col-md-2">遅番</div>
+                    <div class="col-9 col-md-10">
+                      <div class="form-check form-check-inline">
+                        <%= f.radio_button :can_late, true, id: "staff_can_late_true", class: "form-check-input" %>
+                        <label class="form-check-label" for="staff_can_late_true">可</label>
+                      </div>
+                      <div class="form-check form-check-inline">
+                        <%= f.radio_button :can_late, false, id: "staff_can_late_false", class: "form-check-input" %>
+                        <label class="form-check-label" for="staff_can_late_false">不可</label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="row mb-2 align-items-center">
+                    <div class="col-3 col-md-2">夜勤</div>
+                    <div class="col-9 col-md-10">
+                      <div class="form-check form-check-inline">
+                        <%= f.radio_button :can_night, true, id: "staff_can_night_true", class: "form-check-input" %>
+                        <label class="form-check-label" for="staff_can_night_true">可</label>
+                      </div>
+                      <div class="form-check form-check-inline">
+                        <%= f.radio_button :can_night, false, id: "staff_can_night_false", class: "form-check-input" %>
+                        <label class="form-check-label" for="staff_can_night_false">不可</label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row mb-4">
+                <label class="col-md-2 col-form-label fw-bold">スキル</label>
+                <div class="col-md-10">
+                  <div class="form-check form-check-inline">
+                    <%= f.check_box :can_visit, class: "form-check-input", id: "staff_can_visit" %>
+                    <label class="form-check-label" for="staff_can_visit">訪問</label>
+                  </div>
+                  <div class="form-check form-check-inline">
+                    <%= f.check_box :can_drive, class: "form-check-input", id: "staff_can_drive" %>
+                    <label class="form-check-label" for="staff_can_drive">運転</label>
+                  </div>
+                  <div class="form-check form-check-inline">
+                    <%= f.check_box :can_cook, class: "form-check-input", id: "staff_can_cook" %>
+                    <label class="form-check-label" for="staff_can_cook">調理</label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row mt-4">
+                <div class="col-md-8 text-end">
+                  <%= f.submit "登録", class: "btn btn-primary px-4" %>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
