@@ -7,6 +7,12 @@ ja:
         email: "メールアドレス"
         password: "パスワード"
         password_confirmation: "パスワード（確認用）"
+      staff:
+        occupation: "職種"
+        last_name: "姓"
+        first_name: "名"
+        last_name_kana: "姓（せい）"
+        first_name_kana: "名（めい）"
     errors:
       models:
         user:
@@ -22,3 +28,15 @@ ja:
               blank: "を入力してください"
             password_confirmation:
               confirmation: "がパスワードと一致していません"
+        staff:
+          attributes:
+            occupation:
+              required: "を選択してください"
+            last_name:
+              blank: "を入力してください"
+            first_name:
+              blank: "を入力してください"
+            last_name_kana:
+              blank: "を入力してください"
+            first_name_kana:
+              blank: "を入力してください"
