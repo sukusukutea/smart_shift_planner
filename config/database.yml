@@ -88,13 +88,18 @@ test:
 # for a full overview on how database connection configuration can be specified.
 #
 production:
-  primary:
+  primary: &primary_production
     <<: *default
     url: <%= ENV.fetch("DATABASE_URL") %>
 
+  queue:
+    <<: *primary_production
+
   cable:
-    <<: *default
-    url: <%= ENV.fetch("DATABASE_URL") %>
+    <<: *primary_production
+  
+  cache:
+    <<: *primary_production
 
   # primary: &primary_production
   #   <<: *default
