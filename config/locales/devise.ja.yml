@@ -6,10 +6,11 @@ ja:
       signed_in: "ログインしました"
       signed_out: "ログアウトしました"
     failure:
-      invalid: "メールアドレスまたはパスワードが正しくありません。"
-      not_found_in_database: "メールアドレスまたはパスワードが正しくありません。"
-      unauthenticated: "ログインしてください。"
+      invalid: "メールアドレスまたはパスワードが正しくありません"
+      not_found_in_database: "メールアドレスまたはパスワードが正しくありません"
+      unauthenticated: "ログインしてください"
       user:
-        invalid: "メールアドレスまたはパスワードが正しくありません。"
-        not_found_in_database: "メールアドレスまたはパスワードが正しくありません。"
-        unauthenticated: "ログインしてください。"
+        invalid: "メールアドレスまたはパスワードが正しくありません"
+        not_found_in_database: "メールアドレスまたはパスワードが正しくありません"
+        unauthenticated: "ログインしてください"
+        already_authenticated: "すでにログインしています"
