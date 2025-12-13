@@ -1,5 +1,7 @@
 class StaffsController < ApplicationController
   before_action :authenticate_user!
+  before_action :set_staff, only: [:edit, :update, :destroy]
+  before_action :set_occupations, only: [:new, :create, :edit, :update]
 
   def index
     @staffs = current_user.staffs.includes(:occupation).order(:last_name_kana, :first_name_kana) # orderはカナ順の表示
@@ -7,12 +9,10 @@ class StaffsController < ApplicationController
 
   def new
     @staff = current_user.staffs.build # 入力フォームの受け皿作成
-    @occupations = Occupation.all
   end
 
   def create
     @staff = current_user.staffs.build(staff_params) # フォームから送られてきた情報を@staffに入れる
-    @occupations = Occupation.all
 
     if @staff.save
       redirect_to staffs_path, notice: "職員を登録しました。"
@@ -22,7 +22,32 @@ class StaffsController < ApplicationController
     end
   end
 
+  def edit
+  end
+
+  def update
+    if @staff.update(staff_params)
+      redirect_to staffs_path, notice: "職員情報を更新しました"
+    else
+      flash.now[:alert] = "更新に失敗しました。入力内容を確認してください。"
+      render :edit, status: :unprocessable_entity
+    end
+  end
+
+  def destroy
+    @staff.destroy
+    redirect_to staffs_path, notice: "削除しました"
+  end
+
   private
+
+  def set_staff
+    @staff = current_user.staffs.find(params[:id])
+  end
+
+  def set_occupations
+    @occupations = Occupation.all
+  end
 
   def staff_params
     params.require(:staff).permit(

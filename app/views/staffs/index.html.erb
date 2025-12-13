@@ -15,7 +15,7 @@
         <table class="table table-sm table-bordered align-middle">
             <thead>
               <tr class="text-center">
-                <th style="width: 80px; background-color: #e6f0f0;">編集</th>
+                <th style="width: 140px; background-color: #e6f0f0;">操作</th>
                 <th style="background-color: #e6f0f0;">スタッフ名</th>
                 <th style="background-color: #e6f0f0;">職種</th>
                 <th style="background-color: #e6f0f0;">早番</th>
@@ -31,8 +31,21 @@
             <% if @staffs.any? %>
                 <% @staffs.each do |staff| %>
                 <tr>
-                  <td>
-                    <%= link_to "編集", "#" %>
+                  <td class= "text-center">
+                    <div class="d-inline-flex align-items-center gap-1">                    
+                      <%= button_to "編集", 
+                                  edit_staff_path(staff),
+                                  method: :get,
+                                  class: "btn btn-outline-secondary btn-sm px-2 py-0",
+                                  form_class: "d-inline m-0" %>
+
+                      <%= button_to "削除",
+                                    staff_path(staff),
+                                    method: :delete,
+                                    form: { data: { turbo_confirm: "この職員を削除します。よろしいですか？" } },
+                                    class: "btn btn-outline-danger btn-sm px-2 py-0",
+                                    form_class: "d-inline m-0" %>
+                    </div>
                   </td>
 
                   <td><%= "#{staff.last_name} #{staff.first_name}" %></td>
