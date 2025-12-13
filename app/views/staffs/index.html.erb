@@ -15,7 +15,7 @@
         <table class="table table-sm table-bordered align-middle">
             <thead>
               <tr class="text-center">
-                <th style="width: 140px; background-color: #e6f0f0;">操作</th>
+                <th style="width: 100px; background-color: #e6f0f0;">操作</th>
                 <th style="background-color: #e6f0f0;">スタッフ名</th>
                 <th style="background-color: #e6f0f0;">職種</th>
                 <th style="background-color: #e6f0f0;">早番</th>
@@ -36,14 +36,14 @@
                       <%= button_to "編集", 
                                   edit_staff_path(staff),
                                   method: :get,
-                                  class: "btn btn-outline-secondary btn-sm px-2 py-0",
+                                  class: "btn btn-outline-secondary btn-sm px-1 py-0",
                                   form_class: "d-inline m-0" %>
 
                       <%= button_to "削除",
                                     staff_path(staff),
                                     method: :delete,
                                     form: { data: { turbo_confirm: "この職員を削除します。よろしいですか？" } },
-                                    class: "btn btn-outline-danger btn-sm px-2 py-0",
+                                    class: "btn btn-outline-danger btn-sm px-1 py-0",
                                     form_class: "d-inline m-0" %>
                     </div>
                   </td>
