@@ -129,18 +129,20 @@
    - 認可制御： gem 'pundit'
    - パスワード暗号化: gem 'bcrypt'
  - UI/UX用  
-   - スタイルフレームワーク： Tailwind CSS（gem 'tailwindcss-rails'）
+   - スタイルフレームワーク： Bootstrap
    - 非同期通信・動的更新
-     - gem 'turbo-rails'(Rails7に標準装備)
-     - gem 'stimulus-rails'(Rails7に標準装備) 
- - シフト作成用
-   - MVP後に制約充足問題に対応 : gem 'or-tools'
+     - gem 'turbo-rails'
+     - gem 'stimulus-rails'
  - カレンダー対応
    - 繰り返しのスケジュール管理： gem 'ice_cube'
    - 平日・休日を考慮した日付演算： gem 'business_time'
    - 祝日判定: gem 'holidays'
+
+MVP後
  - Excleへの対応
    - Excleへの書き込み・編集：　gem 'rubyXL'
+ - シフト作成用
+   - MVP後に制約充足問題に対応 : gem 'or-tools'
 
    ## ER図
    MVPでは、スキル・勤務形態要件・人数要件の編集機能は実装しませんが、将来的に管理者が自由にカスタマイズできるよう ER図上はテーブル構造を保持しています。
