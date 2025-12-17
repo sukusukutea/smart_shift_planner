@@ -8,6 +8,15 @@ class ShiftMonthsController < ApplicationController
   end
 
   def create
+    year = shift_month_params[:year].to_i
+    month = shift_month_params[:month].to_i
+  
+    existing = current_user.shift_months.find_by(year: year, month: month)
+    if existing
+      redirect_to settings_shift_month_path(existing), notice: "既に作成済みのため、その月を開きました。"
+      return # このreturnは「このcreateアクションの処理をここで終了する」の意味
+    end
+
     @shift_month = current_user.shift_months.new(shift_month_params)
     @shift_month.organization = current_user.organization
 
