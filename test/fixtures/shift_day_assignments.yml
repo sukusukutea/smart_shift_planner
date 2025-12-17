@@ -1,0 +1,13 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  shift_month: one
+  staff: one
+  date: 2025-12-14
+  shift_kind: 1
+
+two:
+  shift_month: two
+  staff: two
+  date: 2025-12-14
+  shift_kind: 1

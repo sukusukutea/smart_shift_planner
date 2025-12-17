@@ -1,0 +1,11 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  shift_day_setting: one
+  shift_kind: 1
+  enabled: false
+
+two:
+  shift_day_setting: two
+  shift_kind: 1
+  enabled: false

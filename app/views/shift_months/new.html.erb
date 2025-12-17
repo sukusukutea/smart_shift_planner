@@ -1,0 +1,41 @@
+<div class="container-fluid">
+  <div class="row min-vh-100">
+    <div class="col-md-3 col-lg-2 p-0">
+      <%= render "layouts/sidebar" %>
+    </div>
+
+    <div class="col-md-9 col-lg-10 py-4">
+      <div class="container">
+        <h1 class="h4 fw-bold mb-4">シフト作成（月を選択）</h1>
+
+        <% if @shift_month.errors.any? %>
+          <div class="alert alert-danger">
+            <ul class="mb-0">
+              <% @shift_month.errors.full_messages.each do |msg| %>
+                <li><%= msg %></li>
+              <% end %>
+            </ul>
+          </div>
+        <% end %>
+
+        <%= form_with model: @shift_month, local: true do |f| %>
+          <div class="row g-3 align-items-end">
+            <div class="col-auto">
+              <%= f.label :year, "年", class: "form-label" %>
+              <%= f.number_field :year, class: "form-control", value: Date.today.year %>
+            </div>
+
+            <div class="col-auto">
+              <%= f.label :month, "月", class: "form-label" %>
+              <%= f.number_field :month, class: "form-control", value: Date.today.month, min: 1, max: 12 %>
+            </div>
+
+            <div class="col-auto">
+              <%= f.submit "新規作成", class: "btn btn-primary" %>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>
