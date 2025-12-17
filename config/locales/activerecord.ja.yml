@@ -13,6 +13,9 @@ ja:
         first_name: "名"
         last_name_kana: "姓（せい）"
         first_name_kana: "名（めい）"
+      shift_month:
+        year: "年"
+        month: "月"
     errors:
       models:
         user:
