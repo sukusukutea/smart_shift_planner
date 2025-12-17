@@ -5,7 +5,7 @@
     </div>
 
     <div class="col-md-9 col-lg-10 py-4">
-      <div class="container">
+      <div class="container px-5">
         <h1 class="h4 fw-bold mb-4">シフト作成（月を選択）</h1>
 
         <% if @shift_month.errors.any? %>
@@ -31,7 +31,7 @@
             </div>
 
             <div class="col-auto">
-              <%= f.submit "新規作成", class: "btn btn-primary" %>
+              <%= f.submit "作成する", class: "btn btn-primary" %>
             </div>
           </div>
         <% end %>

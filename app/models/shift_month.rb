@@ -5,6 +5,10 @@ class ShiftMonth < ApplicationRecord
   has_many :shift_day_settings, dependent: :destroy
   has_many :shift_day_assignments, dependent: :destroy
 
+  validates :year, presence: true
+  validates :month, presence: true
+  validates :month, inclusion: { in: 1..12 }
+
   SHIFT_KINDS = %i[day early late night].freeze
 
   # 日別の勤務ON/OFFを返す（MVP:設定がなければ全部ON）

@@ -8,8 +8,33 @@ class ShiftMonthsController < ApplicationController
   end
 
   def create
-    year = shift_month_params[:year].to_i
-    month = shift_month_params[:month].to_i
+    @shift_month = current_user.shift_months.new(shift_month_params)
+    @shift_month.organization = current_user.organization
+
+    year_string = shift_month_params[:year]
+    month_string = shift_month_params[:month]
+  
+    if year_string.blank?
+      @shift_month.errors.add(:year, "を選択してください")
+    end
+
+    if month_string.blank?
+      @shift_month.errors.add(:month, "を選択してください")
+    end
+
+    if @shift_month.errors.any?
+      render :new, status: :unprocessable_entity
+      return
+    end
+
+    year = year_string.to_i
+    month = month_string.to_i
+
+    unless (1..12).include?(month)
+      @shift_month.errors.add(:month, "は1~12で選択してください。")
+      render :new, status: :unprocessable_entity
+      return
+    end
   
     existing = current_user.shift_months.find_by(year: year, month: month)
     if existing
@@ -17,8 +42,8 @@ class ShiftMonthsController < ApplicationController
       return # このreturnは「このcreateアクションの処理をここで終了する」の意味
     end
 
-    @shift_month = current_user.shift_months.new(shift_month_params)
-    @shift_month.organization = current_user.organization
+    @shift_month.year = year
+    @shift_month.month = month
 
     if @shift_month.save
       redirect_to settings_shift_month_path(@shift_month)
@@ -31,8 +56,8 @@ class ShiftMonthsController < ApplicationController
   def settings
     @month_begin = Date.new(@shift_month.year, @shift_month.month, 1)
     @month_end = @month_begin.end_of_month
-    @calendar_begin = @month_begin.beginning_of_week(:sunday)
-    @calendar_end = @month_end.end_of_week(:sunday)
+    @calendar_begin = @month_begin.beginning_of_week(:monday)
+    @calendar_end = @month_end.end_of_week(:monday)
     @dates = (@calendar_begin..@calendar_end).to_a
   end
 
