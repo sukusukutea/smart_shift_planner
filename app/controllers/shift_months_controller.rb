@@ -59,6 +59,7 @@ class ShiftMonthsController < ApplicationController
     @calendar_begin = @month_begin.beginning_of_week(:monday)
     @calendar_end = @month_end.end_of_week(:monday)
     @dates = (@calendar_begin..@calendar_end).to_a
+    @weeks = @dates.each_slice(7).to_a # １週間毎に区切る
   end
 
   private
