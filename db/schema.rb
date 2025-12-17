@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_12_10_065802) do
+ActiveRecord::Schema[8.1].define(version: 2025_12_14_123443) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -25,6 +25,50 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_10_065802) do
     t.string "name", null: false
     t.datetime "updated_at", null: false
     t.index ["name"], name: "index_organizations_on_name", unique: true
+  end
+
+  create_table "shift_day_assignments", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.date "date", null: false
+    t.integer "shift_kind", null: false
+    t.bigint "shift_month_id", null: false
+    t.bigint "staff_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["shift_month_id", "date", "shift_kind"], name: "index_shift_day_assignments_unique_per_day_and_kind", unique: true
+    t.index ["shift_month_id"], name: "index_shift_day_assignments_on_shift_month_id"
+    t.index ["staff_id"], name: "index_shift_day_assignments_on_staff_id"
+  end
+
+  create_table "shift_day_settings", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.date "date", null: false
+    t.bigint "shift_month_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["shift_month_id", "date"], name: "index_shift_day_settings_on_shift_month_id_and_date", unique: true
+    t.index ["shift_month_id"], name: "index_shift_day_settings_on_shift_month_id"
+  end
+
+  create_table "shift_day_styles", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.boolean "enabled", default: true, null: false
+    t.bigint "shift_day_setting_id", null: false
+    t.integer "shift_kind", null: false
+    t.datetime "updated_at", null: false
+    t.index ["shift_day_setting_id", "shift_kind"], name: "index_shift_day_styles_on_shift_day_setting_id_and_shift_kind", unique: true
+    t.index ["shift_day_setting_id"], name: "index_shift_day_styles_on_shift_day_setting_id"
+  end
+
+  create_table "shift_months", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "holiday_days"
+    t.integer "month", null: false
+    t.bigint "organization_id", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.integer "year", null: false
+    t.index ["organization_id"], name: "index_shift_months_on_organization_id"
+    t.index ["user_id", "year", "month"], name: "index_shift_months_on_user_id_and_year_and_month", unique: true
+    t.index ["user_id"], name: "index_shift_months_on_user_id"
   end
 
   create_table "staffs", force: :cascade do |t|
@@ -62,6 +106,12 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_10_065802) do
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
 
+  add_foreign_key "shift_day_assignments", "shift_months"
+  add_foreign_key "shift_day_assignments", "staffs"
+  add_foreign_key "shift_day_settings", "shift_months"
+  add_foreign_key "shift_day_styles", "shift_day_settings"
+  add_foreign_key "shift_months", "organizations"
+  add_foreign_key "shift_months", "users"
   add_foreign_key "staffs", "occupations"
   add_foreign_key "staffs", "users"
   add_foreign_key "users", "organizations"
