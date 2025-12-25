@@ -11,6 +11,7 @@ Rails.application.routes.draw do
     member do
       get :settings             # /shift_months/:id/settings
       patch :update_settings    # /shift_months/:id/update_settings
+      patch :update_day_settings  #/shift_months/:id/update_day_settings
       post :generate_draft      # /shift_months/:id/generate_draft
     end
   end
