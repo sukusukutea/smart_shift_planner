@@ -71,6 +71,9 @@ class ShiftMonthsController < ApplicationController
 
     @selected_date = parse_selected_date(params[:date]) || @month_begin #日別調整の「選択日」
     @enabled_map = @shift_month.enabled_map_for(@selected_date)
+  
+    holidays = HolidayJp.between(@calendar_begin, @calendar_end)
+    @holiday_by_date = holidays.index_by(&:date)
   end
 
   def update_settings

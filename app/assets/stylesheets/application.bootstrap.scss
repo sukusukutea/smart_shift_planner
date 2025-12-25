@@ -58,6 +58,18 @@
   font-size: 12px;
   text-align: center;
   margin-bottom: 4px;
+  white-space: nowrap;
+}
+
+.day-date .holiday-name {
+  margin-left: 4px;
+  font-size: 11px;
+  color: #ff3b30;
+  font-weight: 600;
+}
+
+.day-date.is-holiday {
+  color: #ff3b30;
 }
 
 /* 日曜日にあたる日付を赤文字にする */

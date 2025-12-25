@@ -48,11 +48,21 @@
                 <% week.each_with_index do |date, i| %>
                   <% in_month = (date.month == @shift_month.month) %>
                   <% weekend_class = (i == 5 ? "is-sat" : (i == 6 ? "is-sun" : "")) %>
+                  <% holiday = @holiday_by_date[date] %>
+                  <% is_holiday = holiday.present? %>
 
-                  <th class="day-head <%= weekend_class %> <%= in_month ? "" : "is-out" %>">
-                    <div class="day-date">
+                  <th class="day-head 
+                            <%= weekend_class %>
+                            <%= in_month ? "" : "is-out" %>
+                            <%= "is-holiday" if is_holiday %>">
+
+                    <div class="day-date <%= 'is-holiday' if is_holiday %>">
                       <%= date.month %>月<%= date.day %>日
+                      <% if is_holiday %>
+                        <span class="holiday-name"><%= holiday.name %></span>
+                      <% end %>
                     </div>
+
                     <div class="day-kinds">
                       <div class="kcell">日勤</div>
                       <div class="kcell">夜勤</div>
