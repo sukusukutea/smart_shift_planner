@@ -1,112 +1,93 @@
 <div class="container-fluid">
   <div class="row min-vh-100">
-    <div id="sidebar-col" class="col-md-2 col-lg-2 p-0 position-relative">
+    <div id="sidebar-col" class="col-md-2 col-lg-2 p-0 bg-light border-end">
       <%= render "layouts/sidebar" %>
-
-      <button type="button"
-              class="sidebar-handle"
-              aria-label="左サイドバーを閉じる"
-              data-action="sidebar#toggle">
-        <span aria-hidden="true">«</span>
-      </button>
     </div>
 
-    <div id="main-col" class="col-md-10 col-lg-10 py-4">
-      <button type="button"
-              class="sidebar-handle sidebar-handle-open"
-              aria-label="左サイドバーを開く"
-              data-action="sidebar#toggle">
-        <span aria-hidden="true">»</span>
-      </button>
-
-      <div class="container-fluid">
-        <div class="d-flex align-items-center gap-2 mb-3">
-          <h1 class="h4 fw-bold mb-0">
-            <%= @shift_month.year %>年 <%= @shift_month.month %>月 シフト設定
-          </h1>
+    <div id="main-content" class="col-md-8 col-lg-8 p-4 overflow-auto">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <button class="btn btn-sm btn-secondary">シフト案を作成</button>
         </div>
-    
-        <div class="row g-3">
-          <div class="col-12 col-xl-10 calendar-col">
-            <div class="border rounded p-3 bg-white">
-              <% occupations = [
-                ["看護師", "看護"],
-                ["ケアマネージャー", "ケアマネ"],
-                ["介護福祉士", "介護"],
-                ["管理栄養士", "調理"],
-                ["事務", "事務"]
-              ] %>
 
-              <% day_names = %w[月 火 水 木 金 土 日] %>
-
-              <div class="table-responsive" data-controller="drag-scroll">
-                <table class="table table-bordered align-middle shift-calendar-table mb-0">
-                  <colgroup>
-                    <col class="col-occ">
-                    <% 7.times do %>
-                      <col class="col-day">
-                      <col class="col-night">
-                      <col class="col-stay">
-                    <% end %>
-                  </colgroup>
-
-                  <thead>
-                    <tr class="shift-cal-head">
-                      <th class="shift-cal-sticky-col"></th>
-                      <% @weeks.first.each_with_index do |date, i| %>
-                        <th colspan="3" class="text-center shift-cal-dow <%= 'shift-cal-sun' if i == 6 %> <%= 'shift-cal-sat' if i == 5 %>">
-                          <%= day_names[i] %>
-                        </th>
-                      <% end %>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    <% @weeks.each do |week| %>
-                      <tr class="shift-cal-week-date-row">
-                        <th class="shift-cal-sticky-col"></th>
-                        <% week.each do |date| %>
-                          <% in_month = (date.month == @shift_month.month) %>
-                          <th class="text-center shift-cal-date <%= 'text-muted' unless in_month %>" colspan="3">
-                            <%= date.month %>月<%= date.day %>日
-                          </th>
-                        <% end %>
-                      </tr>
-
-                      <tr class="shift-cal-subhead">
-                        <th class="shift-cal-sticky-col"></th>
-                        <% week.each do |_date| %>
-                          <th class="text-center shift-cal-kind shift-cal-kind-day">日勤</th>
-                          <th class="text-center shift-cal-kind shift-cal-kind-night">夜勤</th>
-                          <th class="text-center shift-cal-kind shift-cal-kind-stay text-muted">宿直</th>
-                        <% end %>
-                      </tr>
-
-                      <% occupations.each do |_seed_name, label| %>
-                        <tr class="shift-cal-occ-row shift-cal-occ-<%= label %>">
-                          <th class="shift-cal-sticky-col shift-cal-occupation"><%= label %></th>
-
-                          <% week.each do |date| %>
-                            <% in_month = (date.month == @shift_month.month) %>
-                            <!-- 日勤セル -->
-                            <td class="shift-cal-cell shift-cal-kind-day <%= 'shift-cal-out' unless in_month %>"></td>
-
-                            <!-- 夜勤セル -->
-                            <td class="shift-cal-cell shift-cal-kind-night <%= 'shift-cal-out' unless in_month %>"></td>
-
-                            <!-- 宿直セル -->
-                            <td class="shift-cal-cell shift-cal-kind-stay <%= 'shift-cal-out' unless in_month %>"></td>
-                          <% end %>
-                        </tr>
-                      <% end %>
-                    <% end %>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
+        <div class="fw-bold">
+          今月の休日日数：
+          <% if@shift_month.holiday_days.present? %>
+            <span class="text-danger"><%= @shift_month.holiday_days %>日</span>
+          <% else %>
+            <span class="text-muted">未設定</span>
+          <% end %>
         </div>
       </div>
+
+      <div class="shift-calendar">
+
+        <%# 週ごとに下段へ %>
+        <% @weeks.each_with_index do |week, wi| %>
+          <table class="shift-calendar-week">
+            <colgroup>
+              <col class="col-occupation">
+              <% 7.times do %>
+                <col class="col-day">
+              <% end %>
+            </colgroup>
+
+            <thead>
+              <% if wi == 0 %>
+                <tr>
+                  <th class="occ-name"></th>
+                  <% %w[月 火 水 木 金 土 日].each_with_index do |w, i| %>
+                    <% weekend_class = (i == 5 ? "is-sat" : (i == 6 ? "is-sun" : "")) %>
+                    <th class="weekday <%= weekend_class %>"><%= w %></th>
+                  <% end %>
+                </tr>
+              <% end %>
+
+              <tr>
+                <th class="occ-name"></th>
+                <% week.each_with_index do |date, i| %>
+                  <% in_month = (date.month == @shift_month.month) %>
+                  <% weekend_class = (i == 5 ? "is-sat" : (i == 6 ? "is-sun" : "")) %>
+
+                  <th class="day-head <%= weekend_class %> <%= in_month ? "" : "is-out" %>">
+                    <div class="day-date">
+                      <%= date.month %>月<%= date.day %>日
+                    </div>
+                    <div class="day-kinds">
+                      <div class="kcell">日勤</div>
+                      <div class="kcell">夜勤</div>
+                      <div class="kcell">宿直</div>
+                    </div>
+                  </th>
+                <% end %>
+              </tr>
+            </thead>
+
+            <tbody>
+              <% @occupation_order.each do |occupation| %>
+                <tr class="<%= occupation[:row_class] %>">
+                  <th class="occ-name"><%= occupation[:label] %></th>
+
+                  <% week.each do |date| %>
+                    <% in_month = (date.month == @shift_month.month) %>
+                    <td class="day-cell <%= in_month ? "" : "is-out" %>">
+                      <div class="day-slots">
+                        <div class="slot slot-day"    data-shift-kind="day"></div>
+                        <div class="slot slot-night"  data-shift-kind="night"></div>
+                        <div class="slot slot-stay"   data-shift-kind="stay"></div>
+                      </div>
+                    </td>
+                  <% end %>  
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        <% end %>
+      </div>
+    </div>
+
+    <div id="right-sidebar-col" class="col-md-2 col-lg-2 p-0 bg-light border-start">
+      <%= render "shift_months/right_sidebar" %>
     </div>
   </div>
 </div>

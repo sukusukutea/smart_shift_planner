@@ -1,0 +1,125 @@
+<% active_tab = params[:tab] == "daily" ? "daily" : "holiday" %>
+<div class="h-100 d-flex flex-column" style="background-color: #e6f0f0;">
+  <!-- 切り替えボタン -->
+  <div class="d-flex justify-content-around px-1 py-1 border-bottom">
+    <button class="btn btn-outline-secondary w-100 <%= active_tab == "holiday" ? "active" : "" %>"
+            id="btn-holiday" onclick="showTab('holiday')">休日設定</button>
+    <button class="btn btn-outline-secondary w-100 <%= active_tab == "daily" ? "active" : "" %>"
+            id="btn-daily" onclick="showTab('daily')">日別調整</button>
+  </div>
+
+  <!-- コンテンツ -->
+  <div class="flex-grow-1 px-3 pt-3" id="tab-content-area">
+    <div id="tab-holiday" style="<%= active_tab == "holiday" ? "" : "display:none;" %>">
+      <p class="small mb-2 text-decoration-underline text-end" style="cursor: pointer;">サイドバーを閉じる</p>
+
+      <%= form_with model: @shift_month,
+                    url: update_settings_shift_month_path(@shift_month),
+                    method: :patch,
+                    local: true do |f| %>
+
+        <div class="mb-3">
+          <p class="fw-bold small">今月の休日日数</p>
+          <label class="form-label small">全職員共通</label>
+          <div class="d-flex align-items-center">
+            <%= f.number_field :holiday_days,
+                               min: 0,
+                               max: 31,
+                               class: "form-control form-control-sm w-auto me-2" %>
+            <span class="small">日</span>
+          </div>
+        </div>
+        <%= f.submit "登録", class: "btn btn-sm btn-light border" %>
+      <% end %>
+    </div>
+
+    <div id="tab-daily" style="<%= active_tab == "daily" ? "" : "display: none;" %>">
+      <p class="small mb-2 text-decoration-underline text-end" style="cursor: pointer;">サイドバーを閉じる</p>
+
+      <div class="mb-3">
+        <p class="fw-bold small mb-2">日付を選択</p>
+
+        <%= form_with url: settings_shift_month_path(@shift_month),
+                      method: :get,
+                      local: true do %>
+          <%= hidden_field_tag :tab, "daily" %>
+
+          <div class="d-flex align-items-end gap-2">
+            <div>
+              <%= date_field_tag :date,
+                                @selected_date&.iso8601,
+                                class: "form-control form-control-sm" %>
+            </div>
+            <div>
+              <%= submit_tag "表示",
+                            class: "btn btn-sm btn-light border mt-2" %>
+            </div>
+          </div>
+        <% end %>
+      </div>
+
+      <hr class="my-3">
+
+      <div class="mb-2">
+        <p class="fw-bold small mb-2">
+          勤務形態(<%= @selected_date.strftime("%Y年%-m月%-d日") %>)
+        </p>
+
+        <%= form_with url: update_day_settings_shift_month_path(@shift_month),
+                      method: :patch,
+                      local: true do %>
+          <%= hidden_field_tag "day_setting[date]", @selected_date.iso8601 %>
+          <% ShiftMonth::SHIFT_KINDS.each do |kind| %>
+            <% label =
+              case kind
+              when :day    then "日勤"
+              when :early  then "早番"
+              when :late   then "遅番"
+              when :night  then "夜勤"
+              else kind.to_s
+              end
+            %>
+
+            <div class="mb-3">
+              <div class="small mb-1"><%= label %></div>
+
+              <div class="d-flex align-items-center gap-3 small">
+                <label class="d-flex align-items-center gap-1">
+                  <%= radio_button_tag "day_setting[enabled][#{kind}]",
+                                       "1",
+                                      @enabled_map[kind] == true %>
+                  あり
+                </label>
+
+                <label class="d-flex align-items-center gap-1">
+                  <%= radio_button_tag "day_setting[enabled][#{kind}]",
+                                       "0",
+                                      @enabled_map[kind] == false %>
+                  なし
+                </label>
+              </div>
+            </div>
+          <% end %>
+
+          <div class="d-flex justify-content-between mt-4">
+            <%= link_to "キャンセル",
+                        settings_shift_month_path(@shift_month, date: @selected_date.iso8601),
+                        class: "btn btn-sm btn-light border" %>
+            <%= submit_tag "保存",
+                           class: "btn btn-sm btn-light border" %>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function showTab(tabName) {
+    document.getElementById("tab-holiday").style.display = tabName === "holiday" ? "block" : "none";
+    document.getElementById("tab-daily").style.display = tabName === "daily" ? "block" : "none";
+
+    document.getElementById("btn-holiday").classList.toggle("active", tabName === "holiday");
+    document.getElementById("btn-daily").classList.toggle("active", tabName === "daily");
+  }
+</script>
