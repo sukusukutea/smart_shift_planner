@@ -55,7 +55,9 @@
           when :alert then "alert-danger"
           else "alert-info"
           end %>
-        <div class="alert <%= bs_class %> alert-dismissible fade show text-center" role="alert">
+        <div class="alert <%= bs_class %> alert-dismissible fade show text-center"
+             role="alert"
+             data-controller="flash">
           <%= message %>
         </div>
       <% end %>
