@@ -1,0 +1,28 @@
+<div class="p-2">
+  <div class="fw-bold mb-2">職員状況</div>
+
+  <table class="table table-sm staff-stats-table">
+    <thead>
+      <tr>
+        <th>職員</th>
+        <th>日勤</th>
+        <th>早番</th>
+        <th>遅番</th>
+        <th>夜勤</th>
+        <th>休日</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% stats_rows.each do |row| %>
+        <tr>
+          <td><%= row[:staff].last_name %> <%= row[:staff].first_name %></td>
+          <td><%= row[:day] %></td>
+          <td><%= row[:early] %></td>
+          <td><%= row[:late] %></td>
+          <td><%= row[:night] %></td>
+          <td><%= row[:holiday] %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>

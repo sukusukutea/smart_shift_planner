@@ -4,28 +4,46 @@
 /* =====================================================
    テーブル全体のレイアウト
 ===================================================== */
-.shift-calendar-week {
-  width: 100%;
+
+/* カレンダー全体を横スクロールにする */
+.shift-calendar {
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  cursor: grab;
+}
+
+.shift-calendar.is-dragging {
+  cursor: grabbing;
+}
+
+.shift-calendar-month {
+  min-width: 1200px;
   border-collapse: collapse;
-  table-layout: auto;
+  table-layout: fixed;
   margin-bottom: 0;
 }
 
 /* 職種列：文字分のみ（余白は日付列へ） */
 .col-occupation {
-  width: 1%;
+  width: 3%;
   white-space: nowrap;
 }
 
-/* 日付列：残り幅をすべて使用 */
+/* 日付列 */
 .col-day {
-  width: auto;
+  width: calc(97% / 7);
 }
 
 /* 共通罫線 */
-.shift-calendar-week th,
-.shift-calendar-week td {
+.shift-calendar-month th,
+.shift-calendar-month td {
   border: 1px solid #e5e5e5;
+  min-width: 0;
+}
+
+.day-slots, .day-kinds, .slot, .kcell {
+  min-width: 0;
 }
 
 /* =====================================================
@@ -57,7 +75,7 @@
   font-weight: 700;
   font-size: 12px;
   text-align: center;
-  margin-bottom: 4px;
+  margin: 0;
   white-space: nowrap;
 }
 
@@ -102,7 +120,7 @@
   font-size: 10px;
   font-weight: 600;
   background: #fff;
-  vertical-align: center;
+  vertical-align: middle;
   white-space: nowrap;
 }
 
@@ -141,4 +159,69 @@
 
 .slot:first-child {
   border-left: none;
+}
+
+/* =========================================
+   previewカレンダー内 スタッフ名表示
+========================================= */
+.shift-calendar-month .slot {
+  font-size: 10px;
+  line-height: 1.2;
+}
+.shift-calendar-month .slot div {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;  /* はみ出たら … */
+}
+
+.shift-calendar-month .shift-time {
+  font-size: 7.5px;
+  color: #6c757d;
+  margin: 0;
+  padding: 0;
+  display: inline;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.shift-line {
+  display: block;
+  margin: 0;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.shift-line .shift-time {
+  margin-left: 0;
+}
+
+/* =========================================
+   右サイドバー 職員状況
+========================================= */
+.staff-stats-table {
+  font-size: 10px;
+}
+
+.staff-stats-table th,
+.staff-stats-table td {
+  white-space: nowrap;
+  padding: 2px 4px;
+  vertical-align: middle;
+}
+
+.staff-stats-table th {
+  font-weight: 600;
+}
+
+/* 左サイドバー折りたたみ */
+body.sidebar-left-collapsed #sidebar-col {
+  display: none !important;
+}
+
+/* 左が消えた分、中央を広げる */
+@media (min-width: 768px) {
+  body.sidebar-left-collapsed #main-content {
+    flex: 0 0 calc(100% - 16.6666667%);
+    max-width: calc(100% - 16.6666667%);
+  }
 }

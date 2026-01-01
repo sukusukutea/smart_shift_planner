@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_12_14_123443) do
+ActiveRecord::Schema[8.1].define(version: 2025_12_31_131132) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -30,11 +30,14 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_14_123443) do
   create_table "shift_day_assignments", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.date "date", null: false
+    t.string "draft_token"
     t.integer "shift_kind", null: false
     t.bigint "shift_month_id", null: false
+    t.integer "source", default: 0, null: false
     t.bigint "staff_id", null: false
     t.datetime "updated_at", null: false
-    t.index ["shift_month_id", "date", "shift_kind"], name: "index_shift_day_assignments_unique_per_day_and_kind", unique: true
+    t.index ["shift_month_id", "date", "shift_kind"], name: "idx_sda_confirmed_unique", unique: true, where: "(source = 1)"
+    t.index ["shift_month_id", "draft_token", "date", "shift_kind"], name: "idx_sda_draft_unique", unique: true, where: "(source = 0)"
     t.index ["shift_month_id"], name: "index_shift_day_assignments_on_shift_month_id"
     t.index ["staff_id"], name: "index_shift_day_assignments_on_staff_id"
   end

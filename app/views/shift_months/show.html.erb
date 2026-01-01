@@ -4,28 +4,28 @@
       <%= render "layouts/sidebar" %>
     </div>
 
-    <div id="main-content" class="col-md-8 col-lg-8 p-4 overflow-auto">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-          <%= button_to "シフト案を作成",
-                        generate_draft_shift_month_path(@shift_month),
-                        method: :post,
-                        class: "btn btn-sm btn-secondary" %>
-        </div>
+    <% data = @saved %>
 
-        <div class="fw-bold">
-          今月の休日日数：
-          <% if@shift_month.holiday_days.present? %>
-            <span class="text-danger"><%= @shift_month.holiday_days %>日</span>
-          <% else %>
-            <span class="text-muted">未設定</span>
-          <% end %>
-        </div>
+    <div id="main-content" class="col-md-8 col-lg-8 p-4 overflow-auto">
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <%= link_to "戻る", new_shift_month_path, class:"btn btn-sm btn-light border" %>
       </div>
 
       <div class="shift-calendar"
            data-controller="drag-scroll"
            data-action="mousedown->drag-scroll#down mousemove->drag-scroll#move mouseup->drag-scroll#up mouseleave->drag-scroll#leave">
+        <%# 職種を固定5行に寄せる：row_key判定（※1回だけ定義） %>
+        <% def row_key_for(staff)
+             return nil if staff.nil?
+             name = staff.occupation.name
+             return :nurse    if name.include?("看護")
+             return :care_mgr if name.include?("ケアマネ")
+             return :care     if name.include?("介護")
+             return :cook     if name.include?("管理栄養士")
+             return :clerk    if name.include?("事務")
+             nil
+           end %>
+
         <table class="shift-calendar-month">
           <colgroup>
             <col class="col-occupation">
@@ -34,6 +34,7 @@
             <% end %>
           </colgroup>
 
+          <%# 曜日は一番上だけ %>
           <thead>
             <tr>
               <th class="occ-name"></th>
@@ -45,8 +46,10 @@
           </thead>
 
           <tbody>
+            <%# 週ごとに「日付+勤務形態ヘッダー」→「職種5行」を繰り返す %>
             <% @weeks.each do |week| %>
 
+              <%# 週ヘッダー（日付＋勤務形態） %>
               <tr class="week-head-row">
                 <td class="occ-name"></td>
                 <% week.each_with_index do |date, i| %>
@@ -72,22 +75,61 @@
                 <% end %>
               </tr>
 
+              <%# 職種行（draftの名前を表示） %>
               <% @occupation_order.each do |occupation| %>
+                <% row_key = occupation[:key] %>
+
                 <tr class="<%= occupation[:row_class] %>">
                   <th class="occ-name"><%= occupation[:label] %></th>
 
                   <% week.each do |date| %>
                     <% in_month = (date.month == @shift_month.month) %>
+                    <% day_hash = data[date.iso8601] || {} %>
+
+                    <%# 各勤務のstaffを取り出す %>
+                    <% staff_day   = @staff_by_id[day_hash["day"]&.to_i] %>
+                    <% staff_early = @staff_by_id[day_hash["early"]&.to_i] %>
+                    <% staff_late  = @staff_by_id[day_hash["late"]&.to_i] %>
+                    <% staff_night = @staff_by_id[day_hash["night"]&.to_i] %>
+
                     <td class="day-cell <%= in_month ? "" : "is-out" %>">
                       <div class="day-slots">
-                        <div class="slot slot-day"    data-shift-kind="day"></div>
-                        <div class="slot slot-night"  data-shift-kind="night"></div>
-                        <div class="slot slot-stay"   data-shift-kind="stay"></div>
+                        <%# 日勤列：3段 %>
+                        <div class="slot slot-day">
+                          <div class="small">
+                            <% if row_key_for(staff_day) == row_key %>
+                              <%= staff_day.last_name %>
+                            <% end %>
+                          </div>
+
+                          <div class="small shift-line">
+                            <% if row_key_for(staff_early) == row_key %>
+                              <%= staff_early.last_name %><span class="shift-time">730-1630</span>
+                            <% end %>
+                          </div>
+
+                          <div class="small shift-line">
+                            <% if row_key_for(staff_late) == row_key %>
+                              <%= staff_late.last_name %><span class="shift-time">11-20</span>
+                            <% end %>
+                          </div>
+                        </div>
+
+                        <div class="slot slot-night">
+                          <div class="small">
+                            <% if row_key_for(staff_night) == row_key %>
+                              <%= staff_night.last_name %>
+                            <% end %>
+                          </div>
+                        </div>
+
+                        <div class="slot slot-stay"></div>
                       </div>
                     </td>
-                  <% end %>  
+                  <% end %>
                 </tr>
               <% end %>
+
             <% end %>
           </tbody>
         </table>
@@ -95,7 +137,7 @@
     </div>
 
     <div id="right-sidebar-col" class="col-md-2 col-lg-2 p-0 bg-light border-start">
-      <%= render "shift_months/right_sidebar" %>
+      <%= render "shift_months/draft_sidebar", stats_rows: @stats_rows %>
     </div>
   </div>
 </div>
