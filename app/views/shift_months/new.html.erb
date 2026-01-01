@@ -35,6 +35,46 @@
             </div>
           </div>
         <% end %>
+
+        <div class="card border-0 bg-light mt-5" style="max-width: 250px;">
+          <div class="card-body py-3">
+            <h2 class="h5 fw-bold mb-3">作成履歴</h2>
+            <p class="text-muted small mb-2">過去三ヶ月分を確認できます</p>
+
+            <% if @recent_shift_months.present? %>
+              <table class="table table-sm align-middle" style="font-size: 12px;">
+                <thead>
+                  <tr>
+                    <th>年月</th>
+                    <th class="text-end">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% @recent_shift_months.each do |sm| %>
+                    <tr>
+                      <td style="white-space: nowrap;"><%= sm.year %>年 <%= sm.month %>月</td>
+                      <td class="text-end">
+                        <div class="d-inline-flex gap-1">
+                          <%= link_to "編集",
+                                      shift_month_path(sm),
+                                      class: "btn btn-sm btn-light border" %>
+                          <%= button_to "削除",
+                                      shift_month_path(sm),
+                                      method: :delete,
+                                      data: { turbo_confirm: "#{sm.year}年#{sm.month}月を削除します。よろしいですか？" },
+                                      class: "btn btn-sm btn-light border",
+                                      form_class: "m-0" %>
+                        </div>
+                      </td>
+                    </tr>
+                  <% end %>
+                </tbody>
+                </table>
+            <% else %>
+              <div class="text-muted small">まだ作成履歴がありません。</div>
+            <% end %>
+          </div>
+        </div>
       </div>
     </div>
   </div>

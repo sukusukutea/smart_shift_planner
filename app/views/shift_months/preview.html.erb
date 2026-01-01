@@ -1,0 +1,148 @@
+<div class="container-fluid">
+  <div class="row min-vh-100">
+    <div id="sidebar-col" class="col-md-2 col-lg-2 p-0 bg-light border-end">
+      <%= render "layouts/sidebar" %>
+    </div>
+
+    <div id="main-content" class="col-md-8 col-lg-8 p-4 overflow-auto">
+      <div class="d-flex align-items-center gap-2 mb-3" data-controller="left-sidebar">
+        <button type="button"
+                class="btn btn-sm btn-outline-secondary"
+                data-action="left-sidebar#toggle">
+          <i class="bi bi-layout-sidebar-inset"></i>
+        </button>
+
+        <%= link_to "戻る", settings_shift_month_path(@shift_month), class:"btn btn-sm btn-light border" %>
+        <%= button_to "保存（確定）", confirm_draft_shift_month_path(@shift_month), method: :post, class: "btn btn-sm btn-secondary" %>
+      </div>
+
+      <div class="shift-calendar"
+           data-controller="drag-scroll"
+           data-action="mousedown->drag-scroll#down mousemove->drag-scroll#move mouseup->drag-scroll#up mouseleave->drag-scroll#leave">
+        <%# 職種を固定5行に寄せる：row_key判定（※1回だけ定義） %>
+        <% def row_key_for(staff)
+             return nil if staff.nil?
+             name = staff.occupation.name
+             return :nurse    if name.include?("看護")
+             return :care_mgr if name.include?("ケアマネ")
+             return :care     if name.include?("介護")
+             return :cook     if name.include?("管理栄養士")
+             return :clerk    if name.include?("事務")
+             nil
+           end %>
+
+        <table class="shift-calendar-month">
+          <colgroup>
+            <col class="col-occupation">
+            <% 7.times do %>
+              <col class="col-day">
+            <% end %>
+          </colgroup>
+
+          <%# 曜日は一番上だけ %>
+          <thead>
+            <tr>
+              <th class="occ-name"></th>
+              <% %w[月 火 水 木 金 土 日].each_with_index do |w, i| %>
+                <% weekend_class = (i == 5 ? "is-sat" : (i == 6 ? "is-sun" : "")) %>
+                <th class="weekday <%= weekend_class %>"><%= w %></th>
+              <% end %>
+            </tr>
+          </thead>
+
+          <tbody>
+            <%# 週ごとに「日付+勤務形態ヘッダー」→「職種5行」を繰り返す %>
+            <% @weeks.each do |week| %>
+
+              <%# 週ヘッダー（日付＋勤務形態） %>
+              <tr class="week-head-row">
+                <td class="occ-name"></td>
+                <% week.each_with_index do |date, i| %>
+                  <% in_month = (date.month == @shift_month.month) %>
+                  <% weekend_class = (i == 5 ? "is-sat" : (i == 6 ? "is-sun" : "")) %>
+                  <% holiday = @holiday_by_date[date] %>
+                  <% is_holiday = holiday.present? %>
+
+                  <td class="day-head <%= weekend_class %> <%= in_month ? "" : "is-out" %> <%= "is-holiday" if is_holiday %>">
+                    <div class="day-date <%= 'is-holiday' if is_holiday %>">
+                      <%= date.month %>月<%= date.day %>日
+                      <% if is_holiday %>
+                        <span class="holiday-name"><%= holiday.name %></span>
+                      <% end %>
+                    </div>
+
+                    <div class="day-kinds">
+                      <div class="kcell">日勤</div>
+                      <div class="kcell">夜勤</div>
+                      <div class="kcell">宿直</div>
+                    </div>
+                  </td>
+                <% end %>
+              </tr>
+
+              <%# 職種行（draftの名前を表示） %>
+              <% @occupation_order.each do |occupation| %>
+                <% row_key = occupation[:key] %>
+
+                <tr class="<%= occupation[:row_class] %>">
+                  <th class="occ-name"><%= occupation[:label] %></th>
+
+                  <% week.each do |date| %>
+                    <% in_month = (date.month == @shift_month.month) %>
+                    <% day_hash = @draft[date.iso8601] || {} %>
+
+                    <%# 各勤務のstaffを取り出す %>
+                    <% staff_day   = @staff_by_id[day_hash["day"]&.to_i] %>
+                    <% staff_early = @staff_by_id[day_hash["early"]&.to_i] %>
+                    <% staff_late  = @staff_by_id[day_hash["late"]&.to_i] %>
+                    <% staff_night = @staff_by_id[day_hash["night"]&.to_i] %>
+
+                    <td class="day-cell <%= in_month ? "" : "is-out" %>">
+                      <div class="day-slots">
+                        <%# 日勤列：3段 %>
+                        <div class="slot slot-day">
+                          <div class="small">
+                            <% if row_key_for(staff_day) == row_key %>
+                              <%= staff_day.last_name %>
+                            <% end %>
+                          </div>
+
+                          <div class="small shift-line">
+                            <% if row_key_for(staff_early) == row_key %>
+                              <%= staff_early.last_name %><span class="shift-time">730-1630</span>
+                            <% end %>
+                          </div>
+
+                          <div class="small shift-line">
+                            <% if row_key_for(staff_late) == row_key %>
+                              <%= staff_late.last_name %><span class="shift-time">11-20</span>
+                            <% end %>
+                          </div>
+                        </div>
+
+                        <div class="slot slot-night">
+                          <div class="small">
+                            <% if row_key_for(staff_night) == row_key %>
+                              <%= staff_night.last_name %>
+                            <% end %>
+                          </div>
+                        </div>
+
+                        <div class="slot slot-stay"></div>
+                      </div>
+                    </td>
+                  <% end %>
+                </tr>
+              <% end %>
+
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="right-sidebar-col" class="col-md-2 col-lg-2 p-0 bg-light border-start">
+      <%= render "shift_months/draft_sidebar", stats_rows: @stats_rows %>
+    </div>
+  </div>
+</div>

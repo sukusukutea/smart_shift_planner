@@ -9,3 +9,10 @@ application.register("flash", FlashController)
 
 import HelloController from "./hello_controller"
 application.register("hello", HelloController)
+
+import DragScrollController from "./drag_scroll_controller"
+application.register("drag-scroll", DragScrollController)
+
+import LeftSidebarController from "./left_sidebar_controller"
+application.register("left-sidebar", LeftSidebarController)
+

@@ -1,15 +1,35 @@
 class ShiftMonthsController < ApplicationController
   before_action :authenticate_user!
   before_action :require_organization!
-  before_action :set_shift_month, only: [:settings, :update_settings, :update_day_settings]
+  before_action :set_shift_month, only: [:settings, :update_settings, :update_day_settings,
+                                        :generate_draft, :preview, :confirm_draft, :show]
+  before_action :build_calendar_vars, only: [:settings, :preview, :show]
 
   def new
     @shift_month = current_user.shift_months.new
+    @recent_shift_months = current_user.shift_months.order(year: :desc, month: :desc).limit(3)
+  end
+
+  def show
+    build_calendar_vars
+
+    assignments = @shift_month.shift_day_assignments.confirmed
+                              .where(date: @month_begin..@month_end)
+                              .select(:date, :shift_kind, :staff_id)
+
+    @saved = Hash.new { |h, k| h[k] = {} }
+    assignments.each do |a|
+      @saved[a.date.iso8601][a.shift_kind.to_s] = a.staff_id
+    end
+
+    preload_staffs_for
+    @stats_rows = build_stats(@saved)
   end
 
   def create
     @shift_month = current_user.shift_months.new(shift_month_params)
     @shift_month.organization = current_user.organization
+    @recent_shift_months = current_user.shift_months.order(year: :desc, month: :desc).limit(3)
 
     year_string = shift_month_params[:year]
     month_string = shift_month_params[:month]
@@ -53,27 +73,15 @@ class ShiftMonthsController < ApplicationController
     end
   end
 
+  def destroy
+    shift_month = current_user.shift_months.find(params[:id])
+    shift_month.destroy!
+    redirect_to new_shift_month_path, notice: "削除しました"
+  end
+
   def settings
-    @month_begin = Date.new(@shift_month.year, @shift_month.month, 1)
-    @month_end = @month_begin.end_of_month
-    @calendar_begin = @month_begin.beginning_of_week(:monday)
-    @calendar_end = @month_end.end_of_week(:monday)
-    @dates = (@calendar_begin..@calendar_end).to_a
-    @weeks = @dates.each_slice(7).to_a # １週間毎に区切る
-
-    @occupation_order = [
-      { key: :nurse, label: "看護", row_class: "occ-row-nurse" },
-      { key: :care_mgr, label: "ケアマネ", row_class: "occ-row-small" },
-      { key: :care, label: "介護", row_class: "occ-row-care" },
-      { key: :cook, label: "調理", row_class: "occ-row-small" },
-      { key: :clerk, label: "事務", row_class: "occ-row-small" },
-    ]
-
     @selected_date = parse_selected_date(params[:date]) || @month_begin #日別調整の「選択日」
     @enabled_map = @shift_month.enabled_map_for(@selected_date)
-  
-    holidays = HolidayJp.between(@calendar_begin, @calendar_end)
-    @holiday_by_date = holidays.index_by(&:date)
   end
 
   def update_settings
@@ -85,19 +93,19 @@ class ShiftMonthsController < ApplicationController
   end
 
   def update_day_settings
-    date = Date.iso8601(day_setting_params[:date]) # フォームからくるday_setting[date]は文字列のため、Date.iso8601で厳密にDateに変換。不正ならArgumentErrorになる。
+    date = Date.iso8601(day_setting_params[:date])                  # フォームからくるday_setting[date]は文字列のため、Date.iso8601で厳密にDateに変換。不正ならArgumentErrorになる。
   
-    ActiveRecord::Base.transaction do # トランザクション開始（途中で失敗したら全部ロールバックしてくれる）
-      setting = @shift_month.shift_day_settings.find_or_create_by!(date: date) # その日のShiftDaySettingを作るor既存取得（！付きのため、バリデーションで失敗したら例外になる）
+    ActiveRecord::Base.transaction do                               # トランザクション開始（途中で失敗したら全部ロールバックしてくれる）
+      setting = @shift_month.shift_day_settings.find_or_create_by!(date: date)   # その日のShiftDaySettingを作るor既存取得（！付きのため、バリデーションで失敗したら例外になる）
 
-      enabled_hash = day_setting_params[:enabled] || {} # enabledの入力を取り出す(念の為、nilの場合も通るようにする)
+      enabled_hash = day_setting_params[:enabled] || {}                          # enabledの入力を取り出す(念の為、nilの場合も通るようにする)
 
       # ::はスコープ演算子。[ShiftMonthクラスの中にある定数SHIFT_KINDSを参照する]という意味
-      ShiftMonth::SHIFT_KINDS.each do |kind| # paramsに入っていない勤務形態があっても、必ず４件分（day/early/late/night）を保存。
-        enabled = ActiveModel::Type::Boolean.new.cast(enabled_hash[kind.to_s]) # kindを文字列に変換して、フォームで入力した勤務の結果を取り出し、castでtrue/falseのBoolean型に整える
+      ShiftMonth::SHIFT_KINDS.each do |kind|                                     # paramsに入っていない勤務形態があっても、必ず４件分（day/early/late/night）を保存。
+        enabled = ActiveModel::Type::Boolean.new.cast(enabled_hash[kind.to_s])   # kindを文字列に変換して、フォームで入力した勤務の結果を取り出し、castでtrue/falseのBoolean型に整える
 
         style = setting.shift_day_styles.find_or_initialize_by(shift_kind: kind) # すでにその日のshift_kind=:dayがあれば取得。なければメモリ上で新規作成（まだ未保存）
-        style.enabled = enabled #ここでenabledを入れて保存
+        style.enabled = enabled                                                  #ここでenabledを入れて保存
         style.save!
       end
     end
@@ -107,6 +115,84 @@ class ShiftMonthsController < ApplicationController
     redirect_to settings_shift_month_path(@shift_month, tab: "daily"), alert: "日付が不正です" # 日付がISO8601じゃない時
   rescue ActiveRecord::RecordInvalid => e
     redirect_to settings_shift_month_path(@shift_month, tab: "daily"), alert: "保存に失敗しました : #{e.record.errors.full_messages.join(", ")}"
+  end
+
+  def generate_draft
+    draft_hash = ShiftDrafts::RandomGenerator.new(shift_month: @shift_month).call
+    token = SecureRandom.hex(8)
+
+    ShiftDayAssignment.transaction do
+      @shift_month.shift_day_assignments.draft.delete_all
+
+      draft_hash.each do |date_str, kinds_hash|
+        date = Date.iso8601(date_str)
+
+        kinds_hash.each do |kind_str, staff_id|
+          next if staff_id.blank?
+
+          kind = kind_str.to_sym
+          next unless ShiftMonth::SHIFT_KINDS.include?(kind)
+
+          @shift_month.shift_day_assignments.create!(
+            date: date,
+            shift_kind: kind,
+            staff_id: staff_id,
+            source: :draft,
+            draft_token: token
+          )
+        end
+      end
+    end
+
+    session[draft_token_session_key] = token
+    redirect_to preview_shift_month_path(@shift_month), notice: "シフト案を作成しました。"
+  rescue ArgumentError
+    redirect_to settings_shift_month_path(@shift_month), alert: "日付形式が不正です。"
+  end
+
+  def preview
+    token = session[draft_token_session_key]
+    scope = @shift_month.shift_day_assignments.draft
+    scope = scope.where(draft_token: token) if token.present?
+
+    @draft = {}
+    scope.find_each do |a|
+      dkey = a.date.iso8601
+      @draft[dkey] ||= {}
+      @draft[dkey][a.shift_kind.to_s] = a.staff_id
+    end
+
+    preload_staffs_for # staffのデータ
+    @stats_rows = build_stats(@draft) # stats = statistics(統計・集計)の略
+  end
+
+  def confirm_draft
+    token = session[draft_token_session_key]
+
+    scope = @shift_month.shift_day_assignments.draft
+    scope = scope.where(draft_token: token) if token.present?
+
+    unless scope.exists?
+      redirect_to preview_shift_month_path(@shift_month), alert: "シフト案がありません。先に作成してください"
+      return
+    end
+
+    ShiftDayAssignment.transaction do
+      @shift_month.shift_day_assignments.confirmed.delete_all
+
+      scope.update_all(
+        source: ShiftDayAssignment.sources[:confirmed],
+        draft_token: nil,
+        updated_at: Time.current
+      )
+    end
+
+    session.delete(draft_token_session_key)
+    redirect_to settings_shift_month_path(@shift_month), notice: "シフトを保存しました"
+  rescue ArgumentError
+    redirect_to preview_shift_month_path(@shift_month), alert: "日付形式が不正です"
+  rescue ActiveRecord::RecordInvalid => e
+    redirect_to preview_shift_month_path(@shift_month), alert: "保存に失敗しました： #{e.record.errors.full_messages.join(", ")}"
   end
 
   private
@@ -138,5 +224,81 @@ class ShiftMonthsController < ApplicationController
     Date.iso8601(str)
   rescue ArgumentError
     nil
+  end
+
+  def draft_token_session_key
+    "shift_draft_token_#{@shift_month.id}"
+  end
+
+  # カレンダー用の変数(vars:変数達の略)
+  def build_calendar_vars
+    @month_begin = Date.new(@shift_month.year, @shift_month.month, 1)
+    @month_end = @month_begin.end_of_month
+    @calendar_begin = @month_begin.beginning_of_week(:monday)
+    @calendar_end = @month_end.end_of_week(:monday)
+    @dates = (@calendar_begin..@calendar_end).to_a
+    @weeks = @dates.each_slice(7).to_a # １週間毎に区切る
+
+    @occupation_order = [
+      { key: :nurse, label: "看護", row_class: "occ-row-nurse" },
+      { key: :care_mgr, label: "ケアマネ", row_class: "occ-row-small" },
+      { key: :care, label: "介護", row_class: "occ-row-care" },
+      { key: :cook, label: "調理", row_class: "occ-row-small" },
+      { key: :clerk, label: "事務", row_class: "occ-row-small" },
+    ]
+
+    load_holidays
+  end
+
+  def load_holidays
+    holidays = HolidayJp.between(@calendar_begin, @calendar_end)
+    @holiday_by_date = holidays.index_by(&:date)
+  end
+
+  # 表示・集計用に全職員を preload（draft / confirmed 共通）
+  def preload_staffs_for # staff_id→Staffをまとめて引く（N+1防止）staff.idをキーにした、ActiveRecordオブジェクトのhashを作っている。
+    @staff_by_id = current_user.staffs.includes(:occupation).index_by(&:id)
+  end
+
+  def build_stats(draft) # 右サイドバー側の集計用
+    month_begin = Date.new(@shift_month.year, @shift_month.month, 1)
+    month_end   = month_begin.end_of_month
+    dates_in_month = (month_begin..month_end).to_a
+    date_keys = dates_in_month.map(&:iso8601)
+
+    staff_ids = @staff_by_id.keys
+
+    counts = Hash.new { |h, k| h[k] = Hash.new(0) } # counts[staff_id][:day] += 1 など kindの回数
+
+    date_keys.each do |dkey|
+      kinds = draft[dkey] || {}
+      kinds.each do |kind_sym_or_str, staff_id|
+        next if staff_id.blank?
+        kind = kind_sym_or_str.to_sym
+        counts[staff_id.to_i][kind] += 1
+      end
+    end
+
+    holiday_counts = Hash.new(0)
+    date_keys.each do |dkey|
+      assigned_ids = (draft[dkey] || {}).values.compact.map(&:to_i)
+      staff_ids.each do |sid|
+        holiday_counts[sid] += 1 unless assigned_ids.include?(sid)
+      end
+    end
+
+    staff_ids.sort_by { |sid|
+      s = @staff_by_id[sid]
+      [s.last_name_kana, s.first_name_kana]
+    }.map { |sid|
+      {
+        staff: @staff_by_id[sid],
+        day: counts[sid][:day],
+        early: counts[sid][:early],
+        late: counts[sid][:late],
+        night: counts[sid][:night],
+        holiday: holiday_counts[sid]
+      }
+    }
   end
 end
