@@ -19,17 +19,6 @@
       <div class="shift-calendar"
            data-controller="drag-scroll"
            data-action="mousedown->drag-scroll#down mousemove->drag-scroll#move mouseup->drag-scroll#up mouseleave->drag-scroll#leave">
-        <%# 職種を固定5行に寄せる：row_key判定（※1回だけ定義） %>
-        <% def row_key_for(staff)
-             return nil if staff.nil?
-             name = staff.occupation.name
-             return :nurse    if name.include?("看護")
-             return :care_mgr if name.include?("ケアマネ")
-             return :care     if name.include?("介護")
-             return :cook     if name.include?("管理栄養士")
-             return :clerk    if name.include?("事務")
-             nil
-           end %>
 
         <table class="shift-calendar-month">
           <colgroup>
