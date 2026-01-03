@@ -2,7 +2,7 @@ class ShiftMonthsController < ApplicationController
   before_action :authenticate_user!
   before_action :require_organization!
   before_action :set_shift_month, only: [:settings, :update_settings, :update_day_settings,
-                                        :generate_draft, :preview, :confirm_draft, :show]
+                                        :generate_draft, :preview, :confirm_draft, :show, :add_staff_holiday, :remove_staff_holiday]
   before_action :build_calendar_vars, only: [:settings, :preview, :show]
 
   def new
@@ -113,7 +113,6 @@ class ShiftMonthsController < ApplicationController
   end
 
   def add_staff_holiday
-    @shift_month = current_user.shift_months.find(params[:id])
     staff = current_user.staffs.find(params[:staff_id])
     date = Date.iso8601(params[:date])
 
@@ -125,8 +124,6 @@ class ShiftMonthsController < ApplicationController
   end
 
   def remove_staff_holiday
-    @shift_month = current_user.shift_months.find(params[:id])
-
     request = @shift_month.staff_holiday_requests.find(params[:request_id])
     staff_id = request.staff_id
     request.destroy!
