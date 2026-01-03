@@ -2,7 +2,7 @@ class ShiftMonthsController < ApplicationController
   before_action :authenticate_user!
   before_action :require_organization!
   before_action :set_shift_month, only: [:settings, :update_settings, :update_day_settings,
-                                        :generate_draft, :preview, :confirm_draft, :show]
+                                        :generate_draft, :preview, :confirm_draft, :show, :add_staff_holiday, :remove_staff_holiday]
   before_action :build_calendar_vars, only: [:settings, :preview, :show]
 
   def new
@@ -11,8 +11,6 @@ class ShiftMonthsController < ApplicationController
   end
 
   def show
-    build_calendar_vars
-
     assignments = @shift_month.shift_day_assignments.confirmed
                               .where(date: @month_begin..@month_end)
                               .select(:date, :shift_kind, :staff_id)
@@ -23,7 +21,11 @@ class ShiftMonthsController < ApplicationController
     end
 
     preload_staffs_for
-    @stats_rows = build_stats(@saved)
+    @stats_rows = ShiftDrafts::StatsBuilder.new(
+      shift_month: @shift_month,
+      staff_by_id: @staff_by_id,
+      draft: @saved
+    ).call
   end
 
   def create
@@ -80,8 +82,8 @@ class ShiftMonthsController < ApplicationController
   end
 
   def settings
-    @selected_date = parse_selected_date(params[:date]) || @month_begin #日別調整の「選択日」
-    @enabled_map = @shift_month.enabled_map_for(@selected_date)
+    prepare_daily_tab_vars
+    prepare_holiday_tab_vars
   end
 
   def update_settings
@@ -90,6 +92,25 @@ class ShiftMonthsController < ApplicationController
     else
       redirect_to settings_shift_month_path(@shift_month, tab: "holiday"), alert: "更新に失敗しました。"
     end
+  end
+
+  def add_staff_holiday
+    staff = current_user.staffs.find(params[:staff_id])
+    date = Date.iso8601(params[:date])
+
+    @shift_month.staff_holiday_requests.find_or_create_by!(staff: staff, date: date)
+
+    redirect_to settings_shift_month_path(@shift_month, tab:"holiday", staff_id: staff.id), notice: "休日希望を追加しました"
+  rescue ArgumentError
+    redirect_to settings_shift_month_path(@shift_month, tab: "holiday", staff_id: params[:staff_id]), alert: "日付の形式が正しくありません"
+  end
+
+  def remove_staff_holiday
+    request = @shift_month.staff_holiday_requests.find(params[:request_id])
+    staff_id = request.staff_id
+    request.destroy!
+
+    redirect_to settings_shift_month_path(@shift_month, tab: "holiday", staff_id: staff_id), notice: "休日希望を削除しました"
   end
 
   def update_day_settings
@@ -163,7 +184,11 @@ class ShiftMonthsController < ApplicationController
     end
 
     preload_staffs_for # staffのデータ
-    @stats_rows = build_stats(@draft) # stats = statistics(統計・集計)の略
+    @stats_rows = ShiftDrafts::StatsBuilder.new(
+      shift_month: @shift_month,
+      staff_by_id: @staff_by_id,
+      draft: @draft
+    ).call # stats = statistics(統計・集計)の略
   end
 
   def confirm_draft
@@ -260,45 +285,28 @@ class ShiftMonthsController < ApplicationController
     @staff_by_id = current_user.staffs.includes(:occupation).index_by(&:id)
   end
 
-  def build_stats(draft) # 右サイドバー側の集計用
-    month_begin = Date.new(@shift_month.year, @shift_month.month, 1)
-    month_end   = month_begin.end_of_month
-    dates_in_month = (month_begin..month_end).to_a
-    date_keys = dates_in_month.map(&:iso8601)
+  def prepare_daily_tab_vars
+    @selected_date = parse_selected_date(params[:date]) || @month_begin #日別調整の「選択日」
+    @enabled_map = @shift_month.enabled_map_for(@selected_date)
+  end
 
-    staff_ids = @staff_by_id.keys
+  def prepare_holiday_tab_vars
+    @all_staffs = current_user.staffs.order(:last_name_kana, :first_name_kana)
 
-    counts = Hash.new { |h, k| h[k] = Hash.new(0) } # counts[staff_id][:day] += 1 など kindの回数
-
-    date_keys.each do |dkey|
-      kinds = draft[dkey] || {}
-      kinds.each do |kind_sym_or_str, staff_id|
-        next if staff_id.blank?
-        kind = kind_sym_or_str.to_sym
-        counts[staff_id.to_i][kind] += 1
+    @selected_staff = 
+      if params[:staff_id].present?
+        current_user.staffs.find_by(id: params[:staff_id])
+      else
+        nil
       end
-    end
 
-    holiday_counts = Hash.new(0)
-    date_keys.each do |dkey|
-      assigned_ids = (draft[dkey] || {}).values.compact.map(&:to_i)
-      staff_ids.each do |sid|
-        holiday_counts[sid] += 1 unless assigned_ids.include?(sid)
+    @selected_staff_holidays =
+      if @selected_staff
+        @shift_month.staff_holiday_requests.where(staff_id: @selected_staff.id).order(:date)
+      else
+        StaffHolidayRequest.none
       end
-    end
 
-    staff_ids.sort_by { |sid|
-      s = @staff_by_id[sid]
-      [s.last_name_kana, s.first_name_kana]
-    }.map { |sid|
-      {
-        staff: @staff_by_id[sid],
-        day: counts[sid][:day],
-        early: counts[sid][:early],
-        late: counts[sid][:late],
-        night: counts[sid][:night],
-        holiday: holiday_counts[sid]
-      }
-    }
+    @holiday_requests_by_date = @shift_month.staff_holiday_requests.includes(:staff).group_by(&:date)
   end
 end

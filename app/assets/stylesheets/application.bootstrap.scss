@@ -161,6 +161,13 @@
   border-left: none;
 }
 
+.slot-day .holiday-in-slot {
+  font-size: 11px;
+  line-height: 1.2;
+  color: #dc3545;
+  white-space: nowrap;
+}
+
 /* =========================================
    previewカレンダー内 スタッフ名表示
 ========================================= */
@@ -168,6 +175,7 @@
   font-size: 10px;
   line-height: 1.2;
 }
+
 .shift-calendar-month .slot div {
   white-space: nowrap;
   overflow: hidden;

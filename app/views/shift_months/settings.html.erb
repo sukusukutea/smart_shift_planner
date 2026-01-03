@@ -79,8 +79,16 @@
                   <% week.each do |date| %>
                     <% in_month = (date.month == @shift_month.month) %>
                     <td class="day-cell <%= in_month ? "" : "is-out" %>">
+
                       <div class="day-slots">
-                        <div class="slot slot-day"    data-shift-kind="day"></div>
+                        <div class="slot slot-day"    data-shift-kind="day">
+                          <% requests = @holiday_requests_by_date[date] || [] %>
+                          <% requests.each do |request| %>
+                            <% if row_key_for(request.staff) == occupation[:key] %>
+                              <div class="holiday-in-slot"><%= "#{request.staff.last_name} 休" %></div>
+                            <% end %>
+                          <% end %>
+                        </div>
                         <div class="slot slot-night"  data-shift-kind="night"></div>
                         <div class="slot slot-stay"   data-shift-kind="stay"></div>
                       </div>

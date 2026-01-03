@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_12_31_131132) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_03_074021) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -74,7 +74,19 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_31_131132) do
     t.index ["user_id"], name: "index_shift_months_on_user_id"
   end
 
+  create_table "staff_holiday_requests", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.date "date", null: false
+    t.bigint "shift_month_id", null: false
+    t.bigint "staff_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["shift_month_id", "staff_id", "date"], name: "idx_staff_holiday_requests_unique", unique: true
+    t.index ["shift_month_id"], name: "index_staff_holiday_requests_on_shift_month_id"
+    t.index ["staff_id"], name: "index_staff_holiday_requests_on_staff_id"
+  end
+
   create_table "staffs", force: :cascade do |t|
+    t.boolean "active", default: true, null: false
     t.boolean "can_cook", default: false, null: false
     t.boolean "can_day", default: false, null: false
     t.boolean "can_drive", default: false, null: false
@@ -90,6 +102,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_31_131132) do
     t.bigint "occupation_id", null: false
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
+    t.index ["active"], name: "index_staffs_on_active"
     t.index ["occupation_id"], name: "index_staffs_on_occupation_id"
     t.index ["user_id"], name: "index_staffs_on_user_id"
   end
@@ -115,6 +128,8 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_31_131132) do
   add_foreign_key "shift_day_styles", "shift_day_settings"
   add_foreign_key "shift_months", "organizations"
   add_foreign_key "shift_months", "users"
+  add_foreign_key "staff_holiday_requests", "shift_months"
+  add_foreign_key "staff_holiday_requests", "staffs"
   add_foreign_key "staffs", "occupations"
   add_foreign_key "staffs", "users"
   add_foreign_key "users", "organizations"

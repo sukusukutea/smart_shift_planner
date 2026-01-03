@@ -13,13 +13,14 @@ module ShiftDrafts
       (month_begin..month_end).each do |date|
         enabled_map = @shift_month.enabled_map_for(date) # その日の勤務のON/OFFを取得 返り値例{ day: true, early: true, late: false, night: true }
 
+        holiday_ids = @shift_month.staff_holiday_requests.where(date: date).pluck(:staff_id)
         assigned_today = Set.new                         # SetはRuby標準ライブラリのSetクラス「同じ値を二度入れられない」。同じidが重複できない
         day_hash = {} # その日の最終結果
 
         ShiftMonth::SHIFT_KINDS.each do |kind|
           next unless enabled_map[kind] # OFFなら割当しない
 
-          staff = pick_staff_for(kind, exclude_ids: assigned_today.to_a)    # 返り値：今日すでに使ったIDがいればStaffオブジェクト、いなければnil
+          staff = pick_staff_for(kind, exclude_ids: assigned_today.to_a + holiday_ids)    # 返り値：今日すでに使ったIDがいればStaffオブジェクト、いなければnil
           next if staff.nil? # 候補0なら空欄
 
           day_hash[kind] = staff.id
@@ -35,7 +36,7 @@ module ShiftDrafts
     private
 
     def pick_staff_for(kind, exclude_ids:) # ここでのexclude_ids：すでに選ばれた職員のID配列（同じ人を重複させないため）
-      scope = @shift_month.user.staffs # この月を作ったユーザーが登録している職員一覧をscopeに代入
+      scope = @shift_month.user.staffs.active # この月を作ったユーザーが登録している職員一覧をscopeに代入
 
       scope =                          # case kindで条件を足している。kindに応じて対応できる職員だけに絞る
         case kind
