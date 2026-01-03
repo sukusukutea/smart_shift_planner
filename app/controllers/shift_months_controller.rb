@@ -82,26 +82,8 @@ class ShiftMonthsController < ApplicationController
   end
 
   def settings
-    @selected_date = parse_selected_date(params[:date]) || @month_begin #日別調整の「選択日」
-    @enabled_map = @shift_month.enabled_map_for(@selected_date)
-
-    @all_staffs = current_user.staffs.order(:last_name_kana, :first_name_kana)
-
-    @selected_staff = 
-      if params[:staff_id].present?
-        current_user.staffs.find_by(id: params[:staff_id])
-      else
-        nil
-      end
-
-    @selected_staff_holidays =
-      if @selected_staff
-        @shift_month.staff_holiday_requests.where(staff_id: @selected_staff.id).order(:date)
-      else
-        StaffHolidayRequest.none
-      end
-
-    @holiday_requests_by_date = @shift_month.staff_holiday_requests.includes(:staff).group_by(&:date)
+    prepare_daily_tab_vars
+    prepare_holiday_tab_vars
   end
 
   def update_settings
@@ -301,5 +283,30 @@ class ShiftMonthsController < ApplicationController
   # 表示・集計用に全職員を preload（draft / confirmed 共通）
   def preload_staffs_for # staff_id→Staffをまとめて引く（N+1防止）staff.idをキーにした、ActiveRecordオブジェクトのhashを作っている。
     @staff_by_id = current_user.staffs.includes(:occupation).index_by(&:id)
+  end
+
+  def prepare_daily_tab_vars
+    @selected_date = parse_selected_date(params[:date]) || @month_begin #日別調整の「選択日」
+    @enabled_map = @shift_month.enabled_map_for(@selected_date)
+  end
+
+  def prepare_holiday_tab_vars
+    @all_staffs = current_user.staffs.order(:last_name_kana, :first_name_kana)
+
+    @selected_staff = 
+      if params[:staff_id].present?
+        current_user.staffs.find_by(id: params[:staff_id])
+      else
+        nil
+      end
+
+    @selected_staff_holidays =
+      if @selected_staff
+        @shift_month.staff_holiday_requests.where(staff_id: @selected_staff.id).order(:date)
+      else
+        StaffHolidayRequest.none
+      end
+
+    @holiday_requests_by_date = @shift_month.staff_holiday_requests.includes(:staff).group_by(&:date)
   end
 end
