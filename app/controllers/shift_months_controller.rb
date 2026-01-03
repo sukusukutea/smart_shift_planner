@@ -11,8 +11,6 @@ class ShiftMonthsController < ApplicationController
   end
 
   def show
-    build_calendar_vars
-
     assignments = @shift_month.shift_day_assignments.confirmed
                               .where(date: @month_begin..@month_end)
                               .select(:date, :shift_kind, :staff_id)
@@ -23,7 +21,11 @@ class ShiftMonthsController < ApplicationController
     end
 
     preload_staffs_for
-    @stats_rows = build_stats(@saved)
+    @stats_rows = ShiftDrafts::StatsBuilder.new(
+      shift_month: @shift_month,
+      staff_by_id: @staff_by_id,
+      draft: @saved
+    ).call
   end
 
   def create
@@ -88,6 +90,8 @@ class ShiftMonthsController < ApplicationController
     @selected_staff = 
       if params[:staff_id].present?
         current_user.staffs.find_by(id: params[:staff_id])
+      else
+        nil
       end
 
     @selected_staff_holidays =
@@ -201,7 +205,11 @@ class ShiftMonthsController < ApplicationController
     end
 
     preload_staffs_for # staffのデータ
-    @stats_rows = build_stats(@draft) # stats = statistics(統計・集計)の略
+    @stats_rows = ShiftDrafts::StatsBuilder.new(
+      shift_month: @shift_month,
+      staff_by_id: @staff_by_id,
+      draft: @draft
+    ).call # stats = statistics(統計・集計)の略
   end
 
   def confirm_draft
@@ -296,47 +304,5 @@ class ShiftMonthsController < ApplicationController
   # 表示・集計用に全職員を preload（draft / confirmed 共通）
   def preload_staffs_for # staff_id→Staffをまとめて引く（N+1防止）staff.idをキーにした、ActiveRecordオブジェクトのhashを作っている。
     @staff_by_id = current_user.staffs.includes(:occupation).index_by(&:id)
-  end
-
-  def build_stats(draft) # 右サイドバー側の集計用
-    month_begin = Date.new(@shift_month.year, @shift_month.month, 1)
-    month_end   = month_begin.end_of_month
-    dates_in_month = (month_begin..month_end).to_a
-    date_keys = dates_in_month.map(&:iso8601)
-
-    staff_ids = @staff_by_id.keys
-
-    counts = Hash.new { |h, k| h[k] = Hash.new(0) } # counts[staff_id][:day] += 1 など kindの回数
-
-    date_keys.each do |dkey|
-      kinds = draft[dkey] || {}
-      kinds.each do |kind_sym_or_str, staff_id|
-        next if staff_id.blank?
-        kind = kind_sym_or_str.to_sym
-        counts[staff_id.to_i][kind] += 1
-      end
-    end
-
-    holiday_counts = Hash.new(0)
-    date_keys.each do |dkey|
-      assigned_ids = (draft[dkey] || {}).values.compact.map(&:to_i)
-      staff_ids.each do |sid|
-        holiday_counts[sid] += 1 unless assigned_ids.include?(sid)
-      end
-    end
-
-    staff_ids.sort_by { |sid|
-      s = @staff_by_id[sid]
-      [s.last_name_kana, s.first_name_kana]
-    }.map { |sid|
-      {
-        staff: @staff_by_id[sid],
-        day: counts[sid][:day],
-        early: counts[sid][:early],
-        late: counts[sid][:late],
-        night: counts[sid][:night],
-        holiday: holiday_counts[sid]
-      }
-    }
   end
 end
