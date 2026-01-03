@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_02_085409) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_03_074021) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -86,6 +86,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_02_085409) do
   end
 
   create_table "staffs", force: :cascade do |t|
+    t.boolean "active", default: true, null: false
     t.boolean "can_cook", default: false, null: false
     t.boolean "can_day", default: false, null: false
     t.boolean "can_drive", default: false, null: false
@@ -101,6 +102,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_02_085409) do
     t.bigint "occupation_id", null: false
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
+    t.index ["active"], name: "index_staffs_on_active"
     t.index ["occupation_id"], name: "index_staffs_on_occupation_id"
     t.index ["user_id"], name: "index_staffs_on_user_id"
   end

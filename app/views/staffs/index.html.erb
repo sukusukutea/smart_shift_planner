@@ -13,23 +13,25 @@
         </div>
 
         <table class="table table-sm table-bordered align-middle">
-            <thead>
-              <tr class="text-center">
-                <th style="width: 100px; background-color: #e6f0f0;">操作</th>
-                <th style="background-color: #e6f0f0;">スタッフ名</th>
-                <th style="background-color: #e6f0f0;">職種</th>
-                <th style="background-color: #e6f0f0;">早番</th>
-                <th style="background-color: #e6f0f0;">遅番</th>
-                <th style="background-color: #e6f0f0;">夜勤</th>
-                <th style="background-color: #e6f0f0;">訪問</th>
-                <th style="background-color: #e6f0f0;">運転</th>
-                <th style="background-color: #e6f0f0;">調理</th>
-              </tr>
-            </thead>
+          <thead>
+            <tr class="text-center">
+              <th style="width: 100px; background-color: #e6f0f0;">操作</th>
+              <th style="background-color: #e6f0f0;">スタッフ名</th>
+              <th style="background-color: #e6f0f0;">職種</th>
+              <th style="background-color: #e6f0f0;">早番</th>
+              <th style="background-color: #e6f0f0;">遅番</th>
+              <th style="background-color: #e6f0f0;">夜勤</th>
+              <th style="background-color: #e6f0f0;">訪問</th>
+              <th style="background-color: #e6f0f0;">運転</th>
+              <th style="background-color: #e6f0f0;">調理</th>
+            </tr>
+          </thead>
 
-            <tbody class="text-center">
+          <tbody class="text-center">
             <% if @staffs.any? %>
-                <% @staffs.each do |staff| %>
+              <% @staffs.each do |staff| %>
+                <% used = @used_staff_ids&.include?(staff.id) %>
+
                 <tr>
                   <td class= "text-center">
                     <div class="d-inline-flex align-items-center gap-1">                    
@@ -39,16 +41,30 @@
                                   class: "btn btn-outline-secondary btn-sm px-1 py-0",
                                   form_class: "d-inline m-0" %>
 
-                      <%= button_to "削除",
-                                    staff_path(staff),
-                                    method: :delete,
-                                    form: { data: { turbo_confirm: "この職員を削除します。よろしいですか？" } },
-                                    class: "btn btn-outline-danger btn-sm px-1 py-0",
-                                    form_class: "d-inline m-0" %>
+                      <% if used %>
+                        <%= button_to "退職",
+                                      staff_path(staff),
+                                      method: :delete,
+                                      form: { data: { turbo_confirm: "過去のシフトは残したまま、退職（無効化）にします。よろしいですか？" } },
+                                      class: "btn btn-outline-danger btn-sm px-1 py-0",
+                                      form_class: "d-inline m-0" %>
+                      <% else %>
+                        <%= button_to "削除",
+                                      staff_path(staff),
+                                      method: :delete,
+                                      form: { data: { turbo_confirm: "この職員はまだシフトに使用されていません。削除しますか？" } },
+                                      class: "btn btn-outline-danger btn-sm px-1 py-0",
+                                      form_class: "d-inline m-0" %>
+                      <% end %>
                     </div>
                   </td>
 
-                  <td><%= "#{staff.last_name} #{staff.first_name}" %></td>
+                  <td>
+                    <%= "#{staff.last_name} #{staff.first_name}" %>
+                    <% unless staff.active %>
+                      <span class="badge text-bg-secondary ms-1">退職</span>
+                    <% end %>
+                  </td>
                   <td><%= staff.occupation&.name || "未設定" %></td>
 
                   <td><%= staff.can_early ? "可" : "不可" %></td>
@@ -59,15 +75,15 @@
                   <td><%= staff.can_drive ? "可" : "不可" %></td>
                   <td><%= staff.can_cook ? "可" : "不可" %></td>
                 </tr>
-                <% end %>
+              <% end %>
             <% else %>
-                <tr>
+              <tr>
                 <td colspan="9" class="text-center text-muted py-4">
-                    職員が登録されていません。「+職員新規登録」から登録してください。
+                  職員が登録されていません。「+職員新規登録」から登録してください。
                 </td>
-                </tr>
+              </tr>
             <% end %>
-            </tbody>
+          </tbody>
         </table>
       </div>
     </div>

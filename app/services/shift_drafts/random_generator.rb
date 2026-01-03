@@ -36,7 +36,7 @@ module ShiftDrafts
     private
 
     def pick_staff_for(kind, exclude_ids:) # ここでのexclude_ids：すでに選ばれた職員のID配列（同じ人を重複させないため）
-      scope = @shift_month.user.staffs # この月を作ったユーザーが登録している職員一覧をscopeに代入
+      scope = @shift_month.user.staffs.active # この月を作ったユーザーが登録している職員一覧をscopeに代入
 
       scope =                          # case kindで条件を足している。kindに応じて対応できる職員だけに絞る
         case kind
