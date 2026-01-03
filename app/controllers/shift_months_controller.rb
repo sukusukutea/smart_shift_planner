@@ -82,6 +82,22 @@ class ShiftMonthsController < ApplicationController
   def settings
     @selected_date = parse_selected_date(params[:date]) || @month_begin #日別調整の「選択日」
     @enabled_map = @shift_month.enabled_map_for(@selected_date)
+
+    @all_staffs = current_user.staffs.order(:last_name_kana, :first_name_kana)
+
+    @selected_staff = 
+      if params[:staff_id].present?
+        current_user.staffs.find_by(id: params[:staff_id])
+      end
+
+    @selected_staff_holidays =
+      if @selected_staff
+        @shift_month.staff_holiday_requests.where(staff_id: @selected_staff.id).order(:date)
+      else
+        StaffHolidayRequest.none
+      end
+
+    @holiday_requests_by_date = @shift_month.staff_holiday_requests.includes(:staff).group_by(&:date)
   end
 
   def update_settings
@@ -90,6 +106,28 @@ class ShiftMonthsController < ApplicationController
     else
       redirect_to settings_shift_month_path(@shift_month, tab: "holiday"), alert: "更新に失敗しました。"
     end
+  end
+
+  def add_staff_holiday
+    @shift_month = current_user.shift_months.find(params[:id])
+    staff = current_user.staffs.find(params[:staff_id])
+    date = Date.iso8601(params[:date])
+
+    @shift_month.staff_holiday_requests.find_or_create_by!(staff: staff, date: date)
+
+    redirect_to settings_shift_month_path(@shift_month, tab:"holiday", staff_id: staff.id), notice: "休日希望を追加しました"
+  rescue ArgumentError
+    redirect_to settings_shift_month_path(@shift_month, tab: "holiday", staff_id: params[:staff_id]), alert: "日付の形式が正しくありません"
+  end
+
+  def remove_staff_holiday
+    @shift_month = current_user.shift_months.find(params[:id])
+
+    request = @shift_month.staff_holiday_requests.find(params[:request_id])
+    staff_id = request.staff_id
+    request.destroy!
+
+    redirect_to settings_shift_month_path(@shift_month, tab: "holiday", staff_id: staff_id), notice: "休日希望を削除しました"
   end
 
   def update_day_settings

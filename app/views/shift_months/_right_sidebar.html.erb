@@ -11,7 +11,6 @@
   <!-- コンテンツ -->
   <div class="flex-grow-1 px-3 pt-3" id="tab-content-area">
     <div id="tab-holiday" style="<%= active_tab == "holiday" ? "" : "display:none;" %>">
-      <p class="small mb-2 text-decoration-underline text-end" style="cursor: pointer;">サイドバーを閉じる</p>
 
       <%= form_with model: @shift_month,
                     url: update_settings_shift_month_path(@shift_month),
@@ -21,20 +20,92 @@
         <div class="mb-3">
           <p class="fw-bold small">今月の休日日数</p>
           <label class="form-label small">全職員共通</label>
-          <div class="d-flex align-items-center">
+          <div class="d-flex justy align-items-center">
             <%= f.number_field :holiday_days,
                                min: 0,
                                max: 31,
-                               class: "form-control form-control-sm w-auto me-2" %>
+                               class: "form-control form-control-sm w-auto me-1" %>
             <span class="small">日</span>
+            <div class="ms-3">
+              <%= f.submit "登録", class: "btn btn-sm btn-light border" %>
+            </div>
           </div>
         </div>
-        <%= f.submit "登録", class: "btn btn-sm btn-light border" %>
       <% end %>
+
+      <hr class="my-3">
+
+      <div class="mb-2">
+        <p class="fw-bold small mb-2">職員の休日希望</p>
+
+        <%= form_with url: settings_shift_month_path(@shift_month),
+                      method: :get,
+                      local: true do %>
+          <%= hidden_field_tag :tag, "holiday" %>
+
+          <label class="form-label small">職員</label>
+
+          <div class="d-flex gap-2 align-items-end">
+            <div class="flex-grow-1">
+              <%= select_tag :staff_id,
+                  options_for_select(
+                    @all_staffs.map { |staff| ["#{staff.last_name} #{staff.first_name}", staff.id] },
+                    @selected_staff&.id
+                  ),
+                  include_blank: "選択してください",
+                  class: "form-select form-select-sm" %>
+            </div>
+            <div>
+              <%= submit_tag "表示", class:"btn btn-sm btn-light border" %>
+            </div>
+          </div>
+        <% end %>
+
+        <% if @selected_staff %>
+          <%= form_with url: add_staff_holiday_shift_month_path(@shift_month),
+                        method: :post,
+                        local: true do %>
+            <%= hidden_field_tag :staff_id, @selected_staff.id %>
+
+            <div class="mt-3">
+              <label class="form-label small">休日設定</label>
+              <div class="d-flex gap-2 align-items-end">
+                <div class="flex-grow-1">
+                  <%= date_field_tag :date, nil, class: "form-control form-control-sm" %>
+                </div>
+                <div>
+                  <%= submit_tag "+追加", class: "btn btn-sm btn-ligth border" %>
+                </div>
+              </div>
+            </div>
+          <% end %>
+
+          <div class="mt-3">
+            <div class="small text-muted mb-1">指定済み</div>
+
+            <% if @selected_staff_holidays.any? %>
+              <ul class="list-unstyled small">
+                <% @selected_staff_holidays.each do |request| %>
+                  <li class="d-flex justify-content-between align-items-center mb-1">
+                    <span><%= request.date.strftime("%-m/%-d") %></span>
+
+                    <%= button_to "削除",
+                                  remove_staff_holiday_shift_month_path(@shift_month, request_id: request.id),
+                                  method: :delete,
+                                  class: "btn btn-sm btn-outline-danger py-0 px-2",
+                                  form_class: "m-0" %>
+                  </li>
+                <% end %>
+              </ul>
+            <% else %>
+              <div class="small text-muted">まだ指定がありません</div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
     </div>
 
     <div id="tab-daily" style="<%= active_tab == "daily" ? "" : "display: none;" %>">
-      <p class="small mb-2 text-decoration-underline text-end" style="cursor: pointer;">サイドバーを閉じる</p>
 
       <div class="mb-3">
         <p class="fw-bold small mb-2">日付を選択</p>
