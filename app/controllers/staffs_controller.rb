@@ -1,6 +1,6 @@
 class StaffsController < ApplicationController
   before_action :authenticate_user!
-  before_action :set_staff, only: [:edit, :update, :destroy]
+  before_action :set_staff, only: [:edit, :update, :destroy, :restore]
   before_action :set_occupations, only: [:new, :create, :edit, :update]
 
   def index
@@ -47,6 +47,12 @@ class StaffsController < ApplicationController
       @staff.destroy!
       redirect_to staffs_path, notice: "職員を削除しました"
     end
+  end
+
+  def restore
+    @staff.update!(active: true)
+
+    redirect_to staffs_path, notice: "職員を復職しました"
   end
 
   private

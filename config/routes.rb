@@ -5,7 +5,11 @@ Rails.application.routes.draw do
 
   root to: 'pages#home'
   get 'dashboard', to: 'dashboards#index'
-  resources :staffs, only: [:index, :new, :create, :edit, :update, :destroy]
+  resources :staffs, only: [:index, :new, :create, :edit, :update, :destroy] do
+    member do
+      patch :restore
+    end
+  end
 
   resources :shift_months, only: [:new, :create, :destroy, :show] do
     member do
