@@ -15,7 +15,7 @@
 
         <div class="fw-bold">
           今月の休日日数：
-          <% if@shift_month.holiday_days.present? %>
+          <% if @shift_month.holiday_days.present? %>
             <span class="text-danger"><%= @shift_month.holiday_days %>日</span>
           <% else %>
             <span class="text-muted">未設定</span>
@@ -73,25 +73,32 @@
               </tr>
 
               <% @occupation_order.each do |occupation| %>
+                <% row_key = occupation[:key] %>
                 <tr class="<%= occupation[:row_class] %>">
                   <th class="occ-name"><%= occupation[:label] %></th>
 
                   <% week.each do |date| %>
                     <% in_month = (date.month == @shift_month.month) %>
                     <td class="day-cell <%= in_month ? "" : "is-out" %>">
-
-                      <div class="day-slots">
-                        <div class="slot slot-day"    data-shift-kind="day">
-                          <% requests = @holiday_requests_by_date[date] || [] %>
-                          <% requests.each do |request| %>
-                            <% if row_key_for(request.staff) == occupation[:key] %>
-                              <div class="holiday-in-slot"><%= "#{request.staff.last_name} 休" %></div>
-                            <% end %>
-                          <% end %>
+                      <% if row_key == :req %>
+                        <% req = @required_by_date[date] || { nurse: 0, care: 0 } %>
+                        <div class="req-count text-muted">
+                          日勤 看護<%= req[:nurse] %> 介護<%= req[:care] %>
                         </div>
-                        <div class="slot slot-night"  data-shift-kind="night"></div>
-                        <div class="slot slot-stay"   data-shift-kind="stay"></div>
-                      </div>
+                      <% else %>
+                        <div class="day-slots">
+                          <div class="slot slot-day"    data-shift-kind="day">
+                            <% requests = @holiday_requests_by_date[date] || [] %>
+                            <% requests.each do |request| %>
+                              <% if row_key_for(request.staff) == occupation[:key] %>
+                                <div class="holiday-in-slot"><%= "#{request.staff.last_name} 休" %></div>
+                              <% end %>
+                            <% end %>
+                          </div>
+                          <div class="slot slot-night"  data-shift-kind="night"></div>
+                          <div class="slot slot-stay"   data-shift-kind="stay"></div>
+                        </div>
+                      <% end %>
                     </td>
                   <% end %>  
                 </tr>

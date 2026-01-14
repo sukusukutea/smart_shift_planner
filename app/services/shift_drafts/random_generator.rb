@@ -14,16 +14,45 @@ module ShiftDrafts
         enabled_map = @shift_month.enabled_map_for(date) # その日の勤務のON/OFFを取得 返り値例{ day: true, early: true, late: false, night: true }
 
         holiday_ids = @shift_month.staff_holiday_requests.where(date: date).pluck(:staff_id)
-        assigned_today = Set.new                         # SetはRuby標準ライブラリのSetクラス「同じ値を二度入れられない」。同じidが重複できない
+        assigned_today = Set.new  # SetはRuby標準ライブラリのSetクラス「同じ値を二度入れられない」。同じidが重複できない
         day_hash = {} # その日の最終結果
 
         ShiftMonth::SHIFT_KINDS.each do |kind|
           next unless enabled_map[kind] # OFFなら割当しない
 
+          if kind == :day
+            counts = @shift_month.required_counts_for(date, shift_kind: :day)
+            slot = 0
+
+            base_exclude = assigned_today.to_a + holiday_ids
+
+            counts[:nurse].times do
+              staff = pick_staff_for(:day, role: :nurse, exclude_ids: base_exclude)
+              break if staff.nil?
+              (day_hash[:day] ||= []) << { slot: slot, staff_id: staff.id }
+              assigned_today.add(staff.id)
+              slot += 1
+
+              base_exclude = assigned_today.to_a + holiday_ids
+            end
+
+            counts[:care].times do
+              staff = pick_staff_for(:day, role: :care, exclude_ids: base_exclude)
+              break if staff.nil?
+              (day_hash[:day] ||= []) << { slot: slot, staff_id: staff.id }
+              assigned_today.add(staff.id)
+              slot += 1
+
+              base_exclude = assigned_today.to_a + holiday_ids
+            end
+
+            next
+          end
+
           staff = pick_staff_for(kind, exclude_ids: assigned_today.to_a + holiday_ids)    # 返り値：今日すでに使ったIDがいればStaffオブジェクト、いなければnil
           next if staff.nil? # 候補0なら空欄
 
-          day_hash[kind] = staff.id
+          (day_hash[kind] ||= []) << { slot: 0, staff_id: staff.id }
           assigned_today.add(staff.id)
         end
 
@@ -35,8 +64,8 @@ module ShiftDrafts
     
     private
 
-    def pick_staff_for(kind, exclude_ids:) # ここでのexclude_ids：すでに選ばれた職員のID配列（同じ人を重複させないため）
-      scope = @shift_month.user.staffs.active # この月を作ったユーザーが登録している職員一覧をscopeに代入
+    def pick_staff_for(kind, exclude_ids:, role: nil) # ここでのexclude_ids：すでに選ばれた職員のID配列（同じ人を重複させないため）
+      scope = @shift_month.user.staffs.where(active: true) # この月を作ったユーザーが登録している職員一覧をscopeに代入
 
       scope =                          # case kindで条件を足している。kindに応じて対応できる職員だけに絞る
         case kind
@@ -47,6 +76,16 @@ module ShiftDrafts
         else
           scope.none # 想定外のkindが来たら誰も返さない
         end
+
+      if kind == :day && role.present?
+        scope = scope.joins(:occupation)
+        case role
+        when :nurse
+          scope = scope.where("occupations.name LIKE ?", "%看護%")
+        when :care
+          scope = scope.where("occupations.name LIKE ?", "%介護%")
+        end
+      end
 
       scope = scope.where.not(id: exclude_ids) if exclude_ids.any?  # any?で配列に一つでも要素があればture. exclude_idsは含めない
       # ここまでで、kindがtrue かつ すでに使用したIDではない、の条件で満たされたscopeができる。

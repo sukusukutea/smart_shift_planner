@@ -2,7 +2,8 @@ class ShiftMonthsController < ApplicationController
   before_action :authenticate_user!
   before_action :require_organization!
   before_action :set_shift_month, only: [:settings, :update_settings, :update_day_settings,
-                                        :generate_draft, :preview, :confirm_draft, :show, :add_staff_holiday, :remove_staff_holiday]
+                                        :generate_draft, :preview, :confirm_draft, :show, :add_staff_holiday,
+                                        :remove_staff_holiday, :update_weekday_requirements]
   before_action :build_calendar_vars, only: [:settings, :preview, :show]
 
   def new
@@ -13,11 +14,19 @@ class ShiftMonthsController < ApplicationController
   def show
     assignments = @shift_month.shift_day_assignments.confirmed
                               .where(date: @month_begin..@month_end)
-                              .select(:date, :shift_kind, :staff_id)
+                              .select(:date, :shift_kind, :staff_id, :slot)
 
-    @saved = Hash.new { |h, k| h[k] = {} }
+    @saved = Hash.new { |h, k| h[k] = Hash.new { |hh, kk| hh[kk] = [] } }
     assignments.each do |a|
-      @saved[a.date.iso8601][a.shift_kind.to_s] = a.staff_id
+      dkey = a.date.iso8601
+      kind = a.shift_kind.to_s
+      @saved[dkey][kind] << { "slot" => a.slot, "staff_id" => a.staff_id }
+    end
+
+    @saved.each_value do |kinds_hash|
+      kinds_hash.each_value do |rows|
+        rows.sort_by! { |r| r["slot"].to_i }
+      end
     end
 
     preload_staffs_for
@@ -84,6 +93,7 @@ class ShiftMonthsController < ApplicationController
   def settings
     prepare_daily_tab_vars
     prepare_holiday_tab_vars
+    @weekday_requirements = build_weekday_requirements_hash
   end
 
   def update_settings
@@ -138,6 +148,34 @@ class ShiftMonthsController < ApplicationController
     redirect_to settings_shift_month_path(@shift_month, tab: "daily"), alert: "保存に失敗しました : #{e.record.errors.full_messages.join(", ")}"
   end
 
+  def update_weekday_requirements
+    data = params.require(:weekday_requirements)
+
+    ShiftMonthRequirement.transaction do
+      data.each do |dow_str, roles_hash| # dow:day_of_weekの略, str:string
+        dow = dow_str.to_i
+
+        %w[nurse care].each do |role|
+          num = roles_hash[role].to_i
+
+          rec = @shift_month.shift_month_requirements.find_or_initialize_by(
+            shift_kind: :day,
+            day_of_week: dow,
+            role: role
+          )
+          rec.required_number = num
+          rec.save!
+        end
+      end
+    end
+
+    redirect_to settings_shift_month_path(@shift_month, tab: "daily"), notice: "曜日別の必要人数を保存しました"
+  rescue ApplicationController::ParameterMissing
+    redirect_to setting_shift_month_path(@shift_month, tab: "daily"), alert: "入力が見つかりません"
+  rescue ActiveRecord::RecordInvaild => each
+    redirect_to setting_shift_month_path(@shift_month, tab: "daily"), alert: "保存に失敗しました：#{e.record.errors.full_messages.join(", ")}"
+  end
+
   def generate_draft
     draft_hash = ShiftDrafts::RandomGenerator.new(shift_month: @shift_month).call
     token = SecureRandom.hex(8)
@@ -148,19 +186,24 @@ class ShiftMonthsController < ApplicationController
       draft_hash.each do |date_str, kinds_hash|
         date = Date.iso8601(date_str)
 
-        kinds_hash.each do |kind_str, staff_id|
-          next if staff_id.blank?
-
-          kind = kind_str.to_sym
+        kinds_hash.each do |kind_sym_or_str, rows|
+          kind = kind_sym_or_str.to_sym
           next unless ShiftMonth::SHIFT_KINDS.include?(kind)
+          
+          Array(rows).each do |row|
+            staff_id = row[:staff_id] || row["staff_id"]
+            slot = row[:slot] || row["slot"]
+            next if staff_id.blank?
 
-          @shift_month.shift_day_assignments.create!(
-            date: date,
-            shift_kind: kind,
-            staff_id: staff_id,
-            source: :draft,
-            draft_token: token
-          )
+            @shift_month.shift_day_assignments.create!(
+              date: date,
+              shift_kind: kind,
+              staff_id: staff_id,
+              slot: slot.to_i,
+              source: :draft,
+              draft_token: token
+            )
+          end
         end
       end
     end
@@ -176,14 +219,14 @@ class ShiftMonthsController < ApplicationController
     scope = @shift_month.shift_day_assignments.draft
     scope = scope.where(draft_token: token) if token.present?
 
-    @draft = {}
-    scope.find_each do |a|
+    @draft = Hash.new { |h, k| h[k] = Hash.new { |hh, kk| hh[kk] = [] } }
+    scope.ordered.find_each do |a|
       dkey = a.date.iso8601
-      @draft[dkey] ||= {}
-      @draft[dkey][a.shift_kind.to_s] = a.staff_id
+      @draft[dkey][a.shift_kind.to_s] << { "slot" => a.slot, "staff_id" => a.staff_id }
     end
 
     preload_staffs_for # staffのデータ
+
     @stats_rows = ShiftDrafts::StatsBuilder.new(
       shift_month: @shift_month,
       staff_by_id: @staff_by_id,
@@ -270,7 +313,13 @@ class ShiftMonthsController < ApplicationController
       { key: :care, label: "介護", row_class: "occ-row-care" },
       { key: :cook, label: "調理", row_class: "occ-row-small" },
       { key: :clerk, label: "事務", row_class: "occ-row-small" },
+      { key: :req, label: "人員配置", row_class: "occ-row-req" },
     ]
+
+    @required_by_date = {}
+    @dates.each do |date|
+      @required_by_date[date] = @shift_month.required_counts_for(date, shift_kind: :day)
+    end
 
     load_holidays
   end
@@ -308,5 +357,15 @@ class ShiftMonthsController < ApplicationController
       end
 
     @holiday_requests_by_date = @shift_month.staff_holiday_requests.includes(:staff).group_by(&:date)
+  end
+
+  def build_weekday_requirements_hash
+    hash = (0..6).index_with { { "nurse" => 0, "care" => 0 } } # ここで{ 0 => { "nurse" => 0, "care" => 0 }, ..}をつくる
+
+    @shift_month.shift_month_requirements.day.each do |r| # dayはshift_kind: :day　なので使える
+      hash[r.day_of_week][r.role] = r.required_number # hash[曜日][役割] = 必要人数　という構成　例）hash[0]["nurse"] = 2
+    end
+
+    hash
   end
 end

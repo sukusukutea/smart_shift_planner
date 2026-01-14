@@ -20,7 +20,7 @@
         <div class="mb-3">
           <p class="fw-bold small">今月の休日日数</p>
           <label class="form-label small">全職員共通</label>
-          <div class="d-flex justy align-items-center">
+          <div class="d-flex justify align-items-center">
             <%= f.number_field :holiday_days,
                                min: 0,
                                max: 31,
@@ -41,7 +41,7 @@
         <%= form_with url: settings_shift_month_path(@shift_month),
                       method: :get,
                       local: true do %>
-          <%= hidden_field_tag :tag, "holiday" %>
+          <%= hidden_field_tag :tab, "holiday" %>
 
           <label class="form-label small">職員</label>
 
@@ -74,7 +74,7 @@
                   <%= date_field_tag :date, nil, class: "form-control form-control-sm" %>
                 </div>
                 <div>
-                  <%= submit_tag "+追加", class: "btn btn-sm btn-ligth border" %>
+                  <%= submit_tag "+追加", class: "btn btn-sm btn-light border" %>
                 </div>
               </div>
             </div>
@@ -106,6 +106,52 @@
     </div>
 
     <div id="tab-daily" style="<%= active_tab == "daily" ? "" : "display: none;" %>">
+
+      <div class="mb-3">
+        <p class="fw-bold small mb-2">曜日別 必要人数 (日勤）</p>
+
+        <%= form_with url: update_weekday_requirements_shift_month_path(@shift_month),
+                      method: :patch,
+                      local: true do %>
+
+          <table class="table table-sm align-middle" style="font-size: 12px;">
+            <thead>
+              <tr>
+                <th>曜日</th>
+                <th class="text-center">看護</th>
+                <th class="text-center">介護</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <% wdays = ["月","火","水","木","金","土","日"] %>
+              <% 7.times do |i| %>
+                <tr>
+                  <td style="white-space: nowrap;"><%= wdays[i] %></td>
+                  <td class="text-center">
+                    <%= number_field_tag "weekday_requirements[#{i}][nurse]",
+                                         @weekday_requirements.dig(i, "nurse"),
+                                         min: 0,
+                                         class: "form_control form-control-sm",
+                                         style: "width:70px; display:inline-block;" %>             
+                  </td>
+                  <td class="text-center">
+                    <%= number_field_tag "weekday_requirements[#{i}][care]",
+                                         @weekday_requirements.dig(i, "care"),
+                                         min: 0,
+                                         class: "form_control form-control-sm",
+                                         style: "width:70px; display:inline-block;" %>             
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+
+          <div class="mt-2">
+            <%= submit_tag "曜日別設定を保存", class: "btn btn-sm btn-light border" %>
+          </div>
+        <% end %>
+      </div>
 
       <div class="mb-3">
         <p class="fw-bold small mb-2">日付を選択</p>
@@ -152,22 +198,23 @@
             %>
 
             <div class="mb-3">
-              <div class="small mb-1"><%= label %></div>
+              <div class="small mb-1"><%= label %>
 
-              <div class="d-flex align-items-center gap-3 small">
-                <label class="d-flex align-items-center gap-1">
-                  <%= radio_button_tag "day_setting[enabled][#{kind}]",
-                                       "1",
-                                      @enabled_map[kind] == true %>
-                  あり
-                </label>
+                <div class="d-flex align-items-center gap-3 small">
+                  <label class="d-flex align-items-center gap-1">
+                    <%= radio_button_tag "day_setting[enabled][#{kind}]",
+                                        "1",
+                                        @enabled_map[kind] == true %>
+                    あり
+                  </label>
 
-                <label class="d-flex align-items-center gap-1">
-                  <%= radio_button_tag "day_setting[enabled][#{kind}]",
-                                       "0",
-                                      @enabled_map[kind] == false %>
-                  なし
-                </label>
+                  <label class="d-flex align-items-center gap-1">
+                    <%= radio_button_tag "day_setting[enabled][#{kind}]",
+                                        "0",
+                                        @enabled_map[kind] == false %>
+                    なし
+                  </label>
+                </div>
               </div>
             </div>
           <% end %>
