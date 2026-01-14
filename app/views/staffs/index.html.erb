@@ -41,19 +41,28 @@
                                   class: "btn btn-outline-secondary btn-sm px-1 py-0",
                                   form_class: "d-inline m-0" %>
 
-                      <% if used %>
-                        <%= button_to "退職",
-                                      staff_path(staff),
-                                      method: :delete,
-                                      form: { data: { turbo_confirm: "過去のシフトは残したまま、退職（無効化）にします。よろしいですか？" } },
-                                      class: "btn btn-outline-danger btn-sm px-1 py-0",
-                                      form_class: "d-inline m-0" %>
+                      <% if staff.active? %>
+                        <% if used %>
+                          <%= button_to "退職",
+                                        staff_path(staff),
+                                        method: :delete,
+                                        form: { data: { turbo_confirm: "過去のシフトは残したまま、退職（無効化）にします。よろしいですか？" } },
+                                        class: "btn btn-outline-danger btn-sm px-1 py-0",
+                                        form_class: "d-inline m-0" %>
+                        <% else %>
+                          <%= button_to "削除",
+                                        staff_path(staff),
+                                        method: :delete,
+                                        form: { data: { turbo_confirm: "この職員はまだシフトに使用されていません。削除しますか？" } },
+                                        class: "btn btn-outline-danger btn-sm px-1 py-0",
+                                        form_class: "d-inline m-0" %>
+                        <% end %>
                       <% else %>
-                        <%= button_to "削除",
-                                      staff_path(staff),
-                                      method: :delete,
-                                      form: { data: { turbo_confirm: "この職員はまだシフトに使用されていません。削除しますか？" } },
-                                      class: "btn btn-outline-danger btn-sm px-1 py-0",
+                        <%= button_to "復職",
+                                      restore_staff_path(staff),
+                                      method: :patch,
+                                      form: { data: {turbo_confirm: "この職員を復職させますか？" } },
+                                      class: "btn btn-outline-success btn-sm px-1 py-0",
                                       form_class: "d-inline m-0" %>
                       <% end %>
                     </div>

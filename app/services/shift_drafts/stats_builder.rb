@@ -16,16 +16,27 @@ module ShiftDrafts
 
       date_keys.each do |dkey|
         kinds = @draft[dkey] || {}
-        kinds.each do |kind_sym_or_str, staff_id|
-          next if staff_id.blank?
+
+        kinds.each do |kind_sym_or_str, rows|
           kind = kind_sym_or_str.to_sym
-          counts[staff_id.to_i][kind] += 1
+          next unless ShiftMonth::SHIFT_KINDS.include?(kind)
+
+          Array(rows).each do |row|
+            staff_id = extract_staff_id(row)
+            next if staff_id.nil?
+
+            counts[staff_id.to_i][kind] += 1
+          end
         end
       end
 
       holiday_counts = Hash.new(0)
       date_keys.each do |dkey|
-        assigned_ids = (@draft[dkey] || {}).values.compact.map(&:to_i)
+        kinds = @draft[dkey] || {}
+        assigned_ids = kinds.values.flat_map { |rows|
+          Array(rows).map { |row| extract_staff_id(row) }
+        }.compact.uniq
+
         staff_ids.each do |sid|
           holiday_counts[sid] += 1 unless assigned_ids.include?(sid)
         end
@@ -45,6 +56,19 @@ module ShiftDrafts
           holiday: holiday_counts[sid]
         }
       }
+    end
+
+    private
+
+    def extract_staff_id(row)
+      return nil if row.nil?
+
+      if row.is_a?(Hash)
+        v = row["staff_id"] || row[:staff_id] # v:valueの略
+        v.present? ? v.to_i : nil
+      else
+        row.present? ? row.to_i : nil
+      end
     end
   end
 end
