@@ -67,6 +67,11 @@
   vertical-align: top;
 }
 
+.day-head .day-kinds .kcell.is-disabled {
+  color: rgba(0, 0, 0, 0.25);
+  font-weight: 400;
+}
+
 .day-head.is-out {
   color: #b7b7b7;
 }

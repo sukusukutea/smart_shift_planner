@@ -338,7 +338,20 @@ class ShiftMonthsController < ApplicationController
       { key: :req, label: "人員配置", row_class: "occ-row-req" },
     ]
 
-    @day_enabled_by_date = @shift_month.enabled_map_for_range(@dates)[:day]
+    enabled_maps = @shift_month.enabled_map_for_range(@dates)
+    @day_enabled_by_date   = enabled_maps[:day]
+    @night_enabled_by_date = enabled_maps[:night]
+
+    @day_effective_by_date = {}
+
+    @dates.each do |date|
+      day_on = @day_enabled_by_date[date]
+
+      req = @shift_month.required_counts_for(date, shift_kind: :day)
+      has_staff = req[:nurse].to_i > 0 || req[:care].to_i > 0
+
+      @day_effective_by_date[date] = day_on && has_staff
+    end
 
     @required_by_date = {}
     @dates.each do |date|

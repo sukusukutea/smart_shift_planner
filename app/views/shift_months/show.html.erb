@@ -55,9 +55,11 @@
                       <% end %>
                     </div>
 
+                    <% night_on = @night_enabled_by_date[date] %>
+                    <% day_on = @day_effective_by_date[date] %>
                     <div class="day-kinds">
-                      <div class="kcell">日勤</div>
-                      <div class="kcell">夜勤</div>
+                      <div class="kcell <%= day_on ? "" : "is-disabled" %>">日勤</div>
+                      <div class="kcell <%= night_on ? "" : "is-disabled" %>">夜勤</div>
                       <div class="kcell">宿直</div>
                     </div>
                   </td>
