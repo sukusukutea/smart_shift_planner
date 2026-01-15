@@ -1,0 +1,15 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  user: one
+  shift_kind: 1
+  day_of_week: 1
+  role: 1
+  required_number: 1
+
+two:
+  user: two
+  shift_kind: 1
+  day_of_week: 1
+  role: 1
+  required_number: 1

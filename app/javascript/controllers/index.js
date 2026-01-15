@@ -16,3 +16,5 @@ application.register("drag-scroll", DragScrollController)
 import LeftSidebarController from "./left_sidebar_controller"
 application.register("left-sidebar", LeftSidebarController)
 
+import DailyController from "./daily_controller"
+application.register("daily", DailyController)
