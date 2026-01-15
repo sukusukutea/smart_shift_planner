@@ -335,7 +335,7 @@ class ShiftMonthsController < ApplicationController
       { key: :care, label: "介護", row_class: "occ-row-care" },
       { key: :cook, label: "調理", row_class: "occ-row-small" },
       { key: :clerk, label: "事務", row_class: "occ-row-small" },
-      { key: :req, label: "人員配置", row_class: "occ-row-req" },
+      { key: :req, label: "人員設定", row_class: "occ-row-req" },
     ]
 
     enabled_maps = @shift_month.enabled_map_for_range(@dates)
