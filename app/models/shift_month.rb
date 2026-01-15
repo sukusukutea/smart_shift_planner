@@ -18,11 +18,18 @@ class ShiftMonth < ApplicationRecord
   def enabled_map_for(date)
     setting = shift_day_settings.includes(:shift_day_styles).find_by(date: date)
 
+    default = {
+      day: true,
+      early: true,
+      late: true,
+      night: false
+    }
+
     # 設定がなければ全部の勤務をONにする（index_withで各勤務にtrueのハッシュつける）
-    return SHIFT_KINDS.index_with(true) if setting.nil?
+    return default.dup if setting.nil?
 
     # settingがある場合：styleが欠けていても全部ONをベースに上書き
-    base = SHIFT_KINDS.index_with(true)
+    base = default.dup
     setting.shift_day_styles.each do |style|   # その日に「設定が存在する勤務だけ」１件ずつ取り出す
       base[style.shift_kind.to_sym] = style.enabled   # style.shift_kindでenumの"day"や"night"などのStringが返る。to_symはSymbolキー（:nightなど）に変換 
     end
@@ -33,9 +40,16 @@ class ShiftMonth < ApplicationRecord
     dates = Array(dates)
     date_set = dates.to_set
 
+    default_enabled = {
+      day: true,
+      early: true,
+      late: true,
+      night: false
+    }
+
     result = {}
     SHIFT_KINDS.each do |kind|
-      result[kind] = dates.index_with(true)
+      result[kind] = dates.index_with(default_enabled[kind])
     end
 
     settings = shift_day_settings.where(date: dates).includes(:shift_day_styles)
