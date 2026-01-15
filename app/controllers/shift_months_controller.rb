@@ -1,7 +1,7 @@
 class ShiftMonthsController < ApplicationController
   before_action :authenticate_user!
   before_action :require_organization!
-  before_action :set_shift_month, only: [:settings, :update_settings, :update_day_settings,
+  before_action :set_shift_month, only: [:settings, :update_settings, :update_daily,
                                         :generate_draft, :preview, :confirm_draft, :show, :add_staff_holiday,
                                         :remove_staff_holiday, :update_weekday_requirements]
   before_action :build_calendar_vars, only: [:settings, :preview, :show]
@@ -77,6 +77,7 @@ class ShiftMonthsController < ApplicationController
     @shift_month.month = month
 
     if @shift_month.save
+      @shift_month.copy_weekday_requirements_from_base!(user: current_user)
       redirect_to settings_shift_month_path(@shift_month)
     else
       flash.now[:alert] = "作成に失敗しました。入力内容を確認してください。"
@@ -94,6 +95,7 @@ class ShiftMonthsController < ApplicationController
     prepare_daily_tab_vars
     prepare_holiday_tab_vars
     @weekday_requirements = build_weekday_requirements_hash
+    @day_req = @shift_month.required_counts_for(@selected_date, shift_kind: :day)
   end
 
   def update_settings
@@ -102,6 +104,51 @@ class ShiftMonthsController < ApplicationController
     else
       redirect_to settings_shift_month_path(@shift_month, tab: "holiday"), alert: "更新に失敗しました。"
     end
+  end
+
+  def update_daily
+    date = Date.iso8601(params.require(:date))          # フォームからくる[date]は文字列のため、Date.iso8601で厳密にDateに変換。不正ならArgumentErrorになる。
+    enabled_hash = params.dig(:day_setting, :enabled) || {}
+    roles = params.dig(:day_requirements, :roles) || {}
+
+    ActiveRecord::Base.transaction do
+      setting = @shift_month.shift_day_settings.find_or_create_by!(date: date)
+
+      ShiftMonth::SHIFT_KINDS.each do |kind|
+        enabled = ActiveModel::Type::Boolean.new.cast(enabled_hash[kind.to_s])
+        style = setting.shift_day_styles.find_or_initialize_by(shift_kind: kind)
+        style.enabled = enabled
+        style.save!
+      end
+
+      day_enabled = ActiveModel::Type::Boolean.new.cast(enabled_hash["day"])
+
+      if day_enabled
+        %w[nurse care].each do |role|
+          num = roles[role].to_i
+          rec = @shift_month.shift_day_requirements.find_or_initialize_by(
+            date: date,
+            shift_kind: :day,
+            role: role
+          )
+          rec.required_number = num
+          rec.save!
+        end
+      else
+        @shift_month.shift_day_requirements.where(date: date, shift_kind: :day).delete_all
+      end
+    end
+
+    # requirements_index を使ってるなら念の為クリア（必要なら）
+    @shift_month.clear_day_requirements_cache! if @shift_month.respond_to?(:clear_day_requirements_cache!)
+
+    redirect_to settings_shift_month_path(@shift_month, tab: "daily", date: date.iso8601), notice: "保存しました"
+  rescue ArgumentError
+    redirect_to settings_shift_month_path(@shift_month, tab: "daily"), alert: "日付が不正です"
+  rescue ActionController::ParameterMissing
+    redirect_to settings_shift_month_path(@shift_month, tab: "daily"), alert: "入力が見つかりません"
+  rescue ActiveRecord::RecordInvalid => e
+    redirect_to settings_shift_month_path(@shift_month, tab: "daily", date: params[:date]), alert: "保存に失敗しました：#{e.record.errors.full_messages.join(", ")}"
   end
 
   def add_staff_holiday
@@ -121,31 +168,6 @@ class ShiftMonthsController < ApplicationController
     request.destroy!
 
     redirect_to settings_shift_month_path(@shift_month, tab: "holiday", staff_id: staff_id), notice: "休日希望を削除しました"
-  end
-
-  def update_day_settings
-    date = Date.iso8601(day_setting_params[:date])                  # フォームからくるday_setting[date]は文字列のため、Date.iso8601で厳密にDateに変換。不正ならArgumentErrorになる。
-  
-    ActiveRecord::Base.transaction do                               # トランザクション開始（途中で失敗したら全部ロールバックしてくれる）
-      setting = @shift_month.shift_day_settings.find_or_create_by!(date: date)   # その日のShiftDaySettingを作るor既存取得（！付きのため、バリデーションで失敗したら例外になる）
-
-      enabled_hash = day_setting_params[:enabled] || {}                          # enabledの入力を取り出す(念の為、nilの場合も通るようにする)
-
-      # ::はスコープ演算子。[ShiftMonthクラスの中にある定数SHIFT_KINDSを参照する]という意味
-      ShiftMonth::SHIFT_KINDS.each do |kind|                                     # paramsに入っていない勤務形態があっても、必ず４件分（day/early/late/night）を保存。
-        enabled = ActiveModel::Type::Boolean.new.cast(enabled_hash[kind.to_s])   # kindを文字列に変換して、フォームで入力した勤務の結果を取り出し、castでtrue/falseのBoolean型に整える
-
-        style = setting.shift_day_styles.find_or_initialize_by(shift_kind: kind) # すでにその日のshift_kind=:dayがあれば取得。なければメモリ上で新規作成（まだ未保存）
-        style.enabled = enabled                                                  #ここでenabledを入れて保存
-        style.save!
-      end
-    end
-
-    redirect_to settings_shift_month_path(@shift_month, date: date, tab: "daily"), notice: "日別調整を保存しました"
-  rescue ArgumentError
-    redirect_to settings_shift_month_path(@shift_month, tab: "daily"), alert: "日付が不正です" # 日付がISO8601じゃない時
-  rescue ActiveRecord::RecordInvalid => e
-    redirect_to settings_shift_month_path(@shift_month, tab: "daily"), alert: "保存に失敗しました : #{e.record.errors.full_messages.join(", ")}"
   end
 
   def update_weekday_requirements
@@ -315,6 +337,8 @@ class ShiftMonthsController < ApplicationController
       { key: :clerk, label: "事務", row_class: "occ-row-small" },
       { key: :req, label: "人員配置", row_class: "occ-row-req" },
     ]
+
+    @day_enabled_by_date = @shift_month.enabled_map_for_range(@dates)[:day]
 
     @required_by_date = {}
     @dates.each do |date|

@@ -1,4 +1,6 @@
 Rails.application.routes.draw do
+  get "base_weekday_requirements/show"
+  get "base_weekday_requirements/edit"
   devise_for :users, controllers: {
     registrations: 'users/registrations'
   }
@@ -15,8 +17,9 @@ Rails.application.routes.draw do
     member do
       get :settings             # /shift_months/:id/settings
       patch :update_settings    # /shift_months/:id/update_settings
-      patch :update_day_settings  #/shift_months/:id/update_day_settings
+
       patch :update_weekday_requirements
+      patch :update_daily
 
       post :add_staff_holiday
       delete :remove_staff_holiday
@@ -26,4 +29,6 @@ Rails.application.routes.draw do
       post :confirm_draft       # 確定してDB保存
     end
   end
+
+  resource :base_weekday_requirements, only: [:show, :edit, :update]
 end

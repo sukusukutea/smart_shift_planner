@@ -6,6 +6,7 @@ class ShiftMonth < ApplicationRecord
   has_many :shift_day_assignments, dependent: :destroy
   has_many :staff_holiday_requests, dependent: :destroy
   has_many :shift_month_requirements, dependent: :destroy
+  has_many :shift_day_requirements, dependent: :destroy
 
   validates :year, presence: true
   validates :month, presence: true
@@ -26,6 +27,29 @@ class ShiftMonth < ApplicationRecord
       base[style.shift_kind.to_sym] = style.enabled   # style.shift_kindでenumの"day"や"night"などのStringが返る。to_symはSymbolキー（:nightなど）に変換 
     end
     base
+  end
+
+  def enabled_map_for_range(dates) #複数日まとめてenabledを取る
+    dates = Array(dates)
+    date_set = dates.to_set
+
+    result = {}
+    SHIFT_KINDS.each do |kind|
+      result[kind] = dates.index_with(true)
+    end
+
+    settings = shift_day_settings.where(date: dates).includes(:shift_day_styles)
+
+    settings.each do |setting|
+      date = setting.date
+      next unless date_set.include?(date)
+
+      setting.shift_day_styles.each do |style|
+        kind = style.shift_kind.to_sym
+        result[kind][date] = style.enabled
+      end
+    end
+    result
   end
 
   def self.ui_wday(date) # Ruby上では日0 月1..となるため、UI上で月0 火1..となるよう変換する
@@ -52,16 +76,60 @@ class ShiftMonth < ApplicationRecord
 
   # { nurse: 2, care: 1 } などのHashを返す
   def required_counts_for(date, shift_kind: :day)
+
+    roles = day_requirements_index[[date, shift_kind.to_sym]]
+    if roles.present?
+      return {
+        nurse: roles[:nurse].to_i,
+        care:  roles[:care].to_i
+      }
+    end
+
     w = self.class.ui_wday(date)
 
-    roles = requirements_index[[shift_kind.to_sym, w]] || {}
+    roles2 = requirements_index[[shift_kind.to_sym, w]] || {}
     {
-      nurse: roles[:nurse].to_i,
-      care:  roles[:care].to_i
+      nurse: roles2[:nurse].to_i,
+      care:  roles2[:care].to_i
     }
   end
 
   def clear_requirements_cache!
     remove_instance_variable(:@requirements_index) if instance_variable_defined?(:@requirements_index)
+  end
+
+  def clear_day_requirements_cache!
+    remove_instance_variable(:@day_requirements_index) if instance_variable_defined?(:@day_requirements_index)
+  end
+
+  def copy_weekday_requirements_from_base!(user:)
+    BaseWeekdayRequirement.transaction do
+      base_rows = user.base_weekday_requirements.select(:shift_kind, :day_of_week, :role, :required_number)
+
+      base_rows.each do |base|
+        rec = shift_month_requirements.find_or_initialize_by( # rec = recordの略
+          shift_kind: base.shift_kind,
+          day_of_week: base.day_of_week,
+          role: base.role
+        )
+        rec.required_number = base.required_number
+        rec.save!
+      end
+    end
+
+    clear_requirements_cache! #requirements_indexを使ってるならキャッシュクリア
+  end
+
+  def day_requirements_index # 日別人員配置を一括取得して参照しやすくする index[[date, shift_kind_sym][role_sym]] => required_number
+    @day_required_index ||= begin
+      rows = shift_day_requirements.select(:date, :shift_kind, :role, :required_number)
+
+      index = Hash.new { |h, k| h[k] = {} }
+      rows.each do |row|
+        key = [row.date, row.shift_kind.to_sym]
+        index[key][row.role.to_sym] = row.required_number
+      end
+      index
+    end
   end
 end

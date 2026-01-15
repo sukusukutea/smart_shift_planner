@@ -1,0 +1,2 @@
+module BaseWeekdayRequirementsHelper
+end

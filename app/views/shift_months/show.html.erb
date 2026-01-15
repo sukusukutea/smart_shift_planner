@@ -83,10 +83,18 @@
 
                     <td class="day-cell <%= in_month ? "" : "is-out" %>">
                       <% if row_key == :req %>
-                        <% req = @required_by_date[date] || { nurse: 0, care: 0 } %>
-                        <div class="req-count text-muted">
-                          日勤 看護<%= req[:nurse] %> 介護<%= req[:care] %>
-                        </div>
+                        <% day_on = @day_enabled_by_date[date] %>
+
+                        <% if day_on %>
+                          <% req = @required_by_date[date] || { nurse: 0, care: 0 } %>
+                          <div class="req-count text-muted">
+                            日勤 看護:<%= req[:nurse] %> 介護:<%= req[:care] %>
+                          </div>
+                        <% else %>
+                          <div class="req-count text-muted">
+                            日勤 -
+                          </div>
+                        <% end %>
                       <% else %>
                         <% day_rows   = day_hash["day"]   || [] %>
                         <% early_rows = day_hash["early"] || [] %>
