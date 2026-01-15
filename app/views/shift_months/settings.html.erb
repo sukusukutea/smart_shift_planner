@@ -5,15 +5,18 @@
     </div>
 
     <div id="main-content" class="col-md-8 col-lg-8 p-4 overflow-auto">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
+      <div class="d-flex align-items-center gap-2 mb-3" data-controller="left-sidebar">
+        <button type="button"
+                class="btn btn-sm btn-outline-secondary"
+                data-action="left-sidebar#toggle">
+          <i class="bi bi-layout-sidebar-inset"></i>
+        </button>
           <%= button_to "シフト案を作成",
                         generate_draft_shift_month_path(@shift_month),
                         method: :post,
                         class: "btn btn-sm btn-secondary" %>
-        </div>
 
-        <div class="fw-bold">
+        <div class="fw-bold ms-auto">
           今月の休日日数：
           <% if @shift_month.holiday_days.present? %>
             <span class="text-danger"><%= @shift_month.holiday_days %>日</span>
