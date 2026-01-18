@@ -28,6 +28,7 @@ module ShiftDrafts
 
             fixed_staffs = scope
               .where(workday_constraint: :fixed)
+              .where(can_day: true)
               .includes(:staff_workable_wdays, :occupation)
               .select { |s|
                 s.staff_workable_wdays.any? { |wd| wd.wday == wday }
@@ -38,10 +39,19 @@ module ShiftDrafts
             slot = 0
 
             fixed_staffs.each do |staff|
+              occ_name = staff.occupation.name
+
+              if occ_name.include?("事務") || occ_name.include?("管理栄養士")
+                day_rows << { slot: slot, staff_id: staff.id }
+                assigned_today.add(staff.id)
+                slot += 1
+                next
+              end
+              
               role =
-                if staff.occupation.name.include?("看護")
+                if occ_name.include?("看護")
                   :nurse
-                elsif staff.occupation.name.include?("介護")
+                elsif occ_name.include?("介護")
                   :care
                 else
                   next
