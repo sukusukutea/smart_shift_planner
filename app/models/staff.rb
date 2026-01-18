@@ -2,6 +2,9 @@ class Staff < ApplicationRecord
   belongs_to :occupation
   belongs_to :user
   has_many :shift_day_assignments, dependent: :restrict_with_exception # 間違ってdestroyしてもRails側で止める
+  has_many :staff_workable_wdays, dependent: :destroy
+
+  enum :workday_constraint, { free: 0, fixed: 1 }
 
   scope :active, -> { where(active: true) }
 

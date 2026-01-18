@@ -244,3 +244,18 @@ body.sidebar-left-collapsed #sidebar-col {
     max-width: calc(100% - 16.6666667%);
   }
 }
+
+/* =========================================
+   職員新規登録　出勤日指定
+========================================= */
+.workable-wdays.is-disabled {
+  opacity: 0.4;
+}
+
+.workable-wdays.is-disabled label {
+  cursor: not-allowed;
+}
+
+.workable-wdays.is-enabled {
+  opacity: 1;
+}

@@ -12,6 +12,7 @@ module ShiftDrafts
 
       (month_begin..month_end).each do |date|
         enabled_map = @shift_month.enabled_map_for(date) # その日の勤務のON/OFFを取得 返り値例{ day: true, early: true, late: false, night: true }
+        scope = @shift_month.user.staffs.where(active: true)
 
         holiday_ids = @shift_month.staff_holiday_requests.where(date: date).pluck(:staff_id)
         assigned_today = Set.new  # SetはRuby標準ライブラリのSetクラス「同じ値を二度入れられない」。同じidが重複できない
@@ -22,30 +23,64 @@ module ShiftDrafts
 
           if kind == :day
             counts = @shift_month.required_counts_for(date, shift_kind: :day)
+
+            wday = ShiftMonth.ui_wday(date)
+
+            fixed_staffs = scope
+              .where(workday_constraint: :fixed)
+              .includes(:staff_workable_wdays, :occupation)
+              .select { |s|
+                s.staff_workable_wdays.any? { |wd| wd.wday == wday }
+              }
+              .reject { |s| holiday_ids.include?(s.id) }
+
+            day_rows = []
             slot = 0
+
+            fixed_staffs.each do |staff|
+              role =
+                if staff.occupation.name.include?("看護")
+                  :nurse
+                elsif staff.occupation.name.include?("介護")
+                  :care
+                else
+                  next
+                end
+
+              day_rows << { slot: slot, staff_id: staff.id }
+              assigned_today.add(staff.id)
+              slot += 1
+            end
+
+            fixed_nurse = fixed_staffs.count { |s| s.occupation.name.include?("看護") }
+            fixed_care  = fixed_staffs.count { |s| s.occupation.name.include?("介護") }
+
+            need_nurse = [counts[:nurse] - fixed_nurse, 0].max
+            need_care  = [counts[:care]  - fixed_care,  0].max
 
             base_exclude = assigned_today.to_a + holiday_ids
 
-            counts[:nurse].times do
-              staff = pick_staff_for(:day, role: :nurse, exclude_ids: base_exclude)
+            need_nurse.times do
+              staff = pick_staff_for(:day, role: :nurse, exclude_ids: base_exclude, date: date)
               break if staff.nil?
-              (day_hash[:day] ||= []) << { slot: slot, staff_id: staff.id }
+
+              day_rows << { slot: slot, staff_id: staff.id }
               assigned_today.add(staff.id)
               slot += 1
-
               base_exclude = assigned_today.to_a + holiday_ids
             end
 
-            counts[:care].times do
-              staff = pick_staff_for(:day, role: :care, exclude_ids: base_exclude)
+            need_care.times do
+              staff = pick_staff_for(:day, role: :care, exclude_ids: base_exclude, date: date)
               break if staff.nil?
-              (day_hash[:day] ||= []) << { slot: slot, staff_id: staff.id }
+
+              day_rows << { slot: slot, staff_id: staff.id }
               assigned_today.add(staff.id)
               slot += 1
-
               base_exclude = assigned_today.to_a + holiday_ids
             end
 
+            day_hash[:day] = day_rows
             next
           end
 
@@ -64,7 +99,7 @@ module ShiftDrafts
     
     private
 
-    def pick_staff_for(kind, exclude_ids:, role: nil) # ここでのexclude_ids：すでに選ばれた職員のID配列（同じ人を重複させないため）
+    def pick_staff_for(kind, exclude_ids:, role: nil, date: nil) # ここでのexclude_ids：すでに選ばれた職員のID配列（同じ人を重複させないため）
       scope = @shift_month.user.staffs.where(active: true) # この月を作ったユーザーが登録している職員一覧をscopeに代入
 
       scope =                          # case kindで条件を足している。kindに応じて対応できる職員だけに絞る
@@ -85,6 +120,20 @@ module ShiftDrafts
         when :care
           scope = scope.where("occupations.name LIKE ?", "%介護%")
         end
+      end
+
+      if kind == :day && date.present?
+        wday = ShiftMonth.ui_wday(date)
+        scope = scope.left_joins(:staff_workable_wdays)
+                     .where(
+                       "(staffs.workday_constraint = :free)
+                        OR
+                        (staffs.workday_constraint = :fixed
+                         AND staff_workable_wdays.wday = :wday)",
+                       wday: wday,
+                       free: Staff.workday_constraints[:free],
+                       fixed: Staff.workday_constraints[:fixed]
+                      )
       end
 
       scope = scope.where.not(id: exclude_ids) if exclude_ids.any?  # any?で配列に一つでも要素があればture. exclude_idsは含めない

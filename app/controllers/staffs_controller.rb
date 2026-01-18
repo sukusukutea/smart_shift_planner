@@ -4,7 +4,7 @@ class StaffsController < ApplicationController
   before_action :set_occupations, only: [:new, :create, :edit, :update]
 
   def index
-    @staffs = current_user.staffs.includes(:occupation).order(:last_name_kana, :first_name_kana) # orderはカナ順の表示
+    @staffs = current_user.staffs.includes(:occupation, :staff_workable_wdays).order(:last_name_kana, :first_name_kana) # orderはカナ順の表示
     @used_staff_ids = 
       ShiftDayAssignment.where(staff_id: @staffs.select(:id))
                         .distinct
@@ -20,6 +20,7 @@ class StaffsController < ApplicationController
     @staff = current_user.staffs.build(staff_params) # フォームから送られてきた情報を@staffに入れる
 
     if @staff.save
+      save_workable_wdays!(@staff)
       redirect_to staffs_path, notice: "職員を登録しました。"
     else
       flash.now[:alert] = "登録に失敗しました。入力内容を確認してください。"
@@ -32,6 +33,7 @@ class StaffsController < ApplicationController
 
   def update
     if @staff.update(staff_params)
+      save_workable_wdays!(@staff)
       redirect_to staffs_path, notice: "職員情報を更新しました"
     else
       flash.now[:alert] = "更新に失敗しました。入力内容を確認してください。"
@@ -58,7 +60,7 @@ class StaffsController < ApplicationController
   private
 
   def set_staff
-    @staff = current_user.staffs.find(params[:id])
+    @staff = current_user.staffs.includes(:staff_workable_wdays).find(params[:id])
   end
 
   def set_occupations
@@ -71,7 +73,20 @@ class StaffsController < ApplicationController
       :last_name, :first_name,
       :last_name_kana, :first_name_kana,
       :can_day, :can_early, :can_late, :can_night,
-      :can_visit, :can_drive, :can_cook
+      :can_visit, :can_drive, :can_cook,
+      :workday_constraint,
     )
+  end
+
+  def save_workable_wdays!(staff)
+    wdays = Array(params.dig(:staff, :workable_wdays)).map(&:to_i).uniq
+    if staff.workday_constraint == "fixed"
+      staff.staff_workable_wdays.delete_all
+      wdays.each do |wday|
+        staff.staff_workable_wdays.create!(wday: wday)
+      end
+    else
+      staff.staff_workable_wdays.delete_all
+    end
   end
 end
