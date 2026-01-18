@@ -16,8 +16,9 @@
           <thead>
             <tr class="text-center">
               <th style="width: 100px; background-color: #e6f0f0;">操作</th>
-              <th style="background-color: #e6f0f0;">スタッフ名</th>
-              <th style="background-color: #e6f0f0;">職種</th>
+              <th style="width: 150px; background-color: #e6f0f0;">スタッフ名</th>
+              <th style="width: 150px; background-color: #e6f0f0;">職種</th>
+              <th style="width: 100px; background-color: #e6f0f0;">出勤日</th>
               <th style="background-color: #e6f0f0;">早番</th>
               <th style="background-color: #e6f0f0;">遅番</th>
               <th style="background-color: #e6f0f0;">夜勤</th>
@@ -75,14 +76,23 @@
                     <% end %>
                   </td>
                   <td><%= staff.occupation&.name || "未設定" %></td>
+                  <td class="text-center" style="white-space: nowrap;">
+                    <% if staff.workday_constraint == "free" %>
+                      <span class="text-muted">-</span>
+                    <% else %>
+                      <% wdays = %w[月 火 水 木 金 土 日] %>
+                      <% selected = staff.staff_workable_wdays.map(&:wday).sort %>
+                      <span><%= selected.map { |i| wdays[i] }.join %></span> 
+                    <% end %>
+                  </td>
 
-                  <td><%= staff.can_early ? "可" : "不可" %></td>
-                  <td><%= staff.can_late ? "可" : "不可" %></td>
-                  <td><%= staff.can_night ? "可" : "不可" %></td>
+                  <td><%= staff.can_early ? "○" : "-" %></td>
+                  <td><%= staff.can_late ? "○" : "-" %></td>
+                  <td><%= staff.can_night ? "○" : "-" %></td>
 
-                  <td><%= staff.can_visit ? "可" : "不可" %></td>
-                  <td><%= staff.can_drive ? "可" : "不可" %></td>
-                  <td><%= staff.can_cook ? "可" : "不可" %></td>
+                  <td><%= staff.can_visit ? "○" : "-" %></td>
+                  <td><%= staff.can_drive ? "○" : "-" %></td>
+                  <td><%= staff.can_cook ? "○" : "-" %></td>
                 </tr>
               <% end %>
             <% else %>
