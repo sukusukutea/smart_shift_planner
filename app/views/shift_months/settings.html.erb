@@ -29,97 +29,17 @@
       <div class="shift-calendar"
            data-controller="drag-scroll"
            data-action="mousedown->drag-scroll#down mousemove->drag-scroll#move mouseup->drag-scroll#up mouseleave->drag-scroll#leave">
-        <table class="shift-calendar-month">
-          <colgroup>
-            <col class="col-occupation">
-            <% 7.times do %>
-              <col class="col-day">
-            <% end %>
-          </colgroup>
-
-          <thead>
-            <tr>
-              <th class="occ-name"></th>
-              <% %w[月 火 水 木 金 土 日].each_with_index do |w, i| %>
-                <% weekend_class = (i == 5 ? "is-sat" : (i == 6 ? "is-sun" : "")) %>
-                <th class="weekday <%= weekend_class %>"><%= w %></th>
-              <% end %>
-            </tr>
-          </thead>
-
-          <tbody>
-            <% @weeks.each do |week| %>
-
-              <tr class="week-head-row">
-                <td class="occ-name"></td>
-                <% week.each_with_index do |date, i| %>
-                  <% in_month = (date.month == @shift_month.month) %>
-                  <% weekend_class = (i == 5 ? "is-sat" : (i == 6 ? "is-sun" : "")) %>
-                  <% holiday = @holiday_by_date[date] %>
-                  <% is_holiday = holiday.present? %>
-
-                  <td class="day-head <%= weekend_class %> <%= in_month ? "" : "is-out" %> <%= "is-holiday" if is_holiday %>">
-                    <div class="day-date <%= 'is-holiday' if is_holiday %>">
-                      <%= date.month %>月<%= date.day %>日
-                      <% if is_holiday %>
-                        <span class="holiday-name"><%= holiday.name %></span>
-                      <% end %>
-                    </div>
-
-                    <% night_on = @night_enabled_by_date[date] %>
-                    <% day_on = @day_effective_by_date[date] %>
-                    <div class="day-kinds">
-                      <div class="kcell <%= day_on ? "" : "is-disabled" %>">日勤</div>
-                      <div class="kcell <%= night_on ? "" : "is-disabled" %>">夜勤</div>
-                      <div class="kcell">宿直</div>
-                    </div>
-                  </td>
-                <% end %>
-              </tr>
-
-              <% @occupation_order.each do |occupation| %>
-                <% row_key = occupation[:key] %>
-                <tr class="<%= occupation[:row_class] %>">
-                  <th class="occ-name"><%= occupation[:label] %></th>
-
-                  <% week.each do |date| %>
-                    <% in_month = (date.month == @shift_month.month) %>
-                    <td class="day-cell <%= in_month ? "" : "is-out" %>">
-                      <% if row_key == :req %>
-                        <% day_on = @day_enabled_by_date[date] %>
-
-                        <% if day_on %>
-                          <% req = @required_by_date[date] || { nurse: 0, care: 0 } %>
-                          <div class="req-count text-muted">
-                            日勤 看護:<%= req[:nurse] %> 介護:<%= req[:care] %>
-                          </div>
-                        <% else %>
-                          <div class="req-count text-muted">
-                            日勤 -
-                          </div>
-                        <% end %>
-
-                      <% else %>
-                        <div class="day-slots">
-                          <div class="slot slot-day"    data-shift-kind="day">
-                            <% requests = @holiday_requests_by_date[date] || [] %>
-                            <% requests.each do |request| %>
-                              <% if row_key_for(request.staff) == occupation[:key] %>
-                                <div class="holiday-in-slot"><%= "#{request.staff.last_name} 休" %></div>
-                              <% end %>
-                            <% end %>
-                          </div>
-                          <div class="slot slot-night"  data-shift-kind="night"></div>
-                          <div class="slot slot-stay"   data-shift-kind="stay"></div>
-                        </div>
-                      <% end %>
-                    </td>
-                  <% end %>  
-                </tr>
-              <% end %>
-            <% end %>
-          </tbody>
-        </table>
+        <%= render "shift_months/calendar",
+                   weeks: @weeks,
+                   shift_month: @shift_month,
+                   occupation_order: @occupation_order,
+                   holiday_by_date: @holiday_by_date,
+                   day_enabled_by_date: @day_enabled_by_date,
+                   night_enabled_by_date: @night_enabled_by_date,
+                   day_effective_by_date: @day_effective_by_date,
+                   required_by_date: @required_by_date,
+                   cell_partial: "shift_months/calendar_cells/settings",
+                   extra_locals: { holiday_requests_by_date: @holiday_requests_by_date } %>
       </div>
     </div>
 

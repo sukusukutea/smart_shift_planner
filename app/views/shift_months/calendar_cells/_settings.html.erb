@@ -1,0 +1,33 @@
+<%# locals:
+  date:, in_month:, occupation:, row_key:, shift_month:,
+  day_enabled_by_date:, required_by_date:,
+  holiday_requests_by_date:
+%>
+
+<% if row_key == :req %>
+  <% day_on = day_enabled_by_date[date] %>
+
+  <% if day_on %>
+    <% req = required_by_date[date] || { nurse: 0, care: 0 } %>
+    <div class="req-count text-muted">
+      日勤 看護:<%= req[:nurse] %> 介護:<%= req[:care] %>
+    </div>
+  <% else %>
+    <div class="req-count text-muted">日勤 -</div>
+  <% end %>
+
+<% else %>
+  <div class="day-slots">
+    <div class="slot slot-day" data-shift-kind="day">
+      <% requests = holiday_requests_by_date[date] || [] %>
+      <% requests.each do |request| %>
+        <% if row_key_for(request.staff) == occupation[:key] %>
+          <div class="holiday-in-slot"><%= "#{request.staff.last_name} 休" %></div>
+        <% end %>
+      <% end %>
+    </div>
+
+    <div class="slot slot-night" data-shift-kind="night"></div>
+    <div class="slot slot-stay" data-shift-kind="stay"></div>
+  </div>
+<% end %>

@@ -1,0 +1,76 @@
+<%# locals:
+  date:, in_month:, occupation:, row_key:, shift_month:,
+  day_enabled_by_date:, required_by_date:,
+  draft:, staff_by_id:
+%>
+
+<% day_hash = draft[date.iso8601] || {} %>
+<% day_rows   = day_hash["day"]   || [] %>
+<% early_rows = day_hash["early"] || [] %>
+<% late_rows  = day_hash["late"]  || [] %>
+<% night_rows = day_hash["night"] || [] %>
+
+<% if row_key == :req %>
+  <% day_on = day_enabled_by_date[date] %>
+
+  <% if day_on %>
+    <% req = required_by_date[date] || { nurse: 0, care: 0 } %>
+    <div class="req-count text-muted">
+      日勤 看護:<%= req[:nurse] %> 介護:<%= req[:care] %>
+    </div>
+  <% else %>
+    <div class="req-count text-muted">日勤 -</div>
+  <% end %>
+<% elsif row_key == :alert %>
+  <% msgs = Array(alerts_by_date[date]) %>
+  <% if msgs.any? %>
+    <div class="text-danger small"><%= msgs.join(" / ") %></div>
+  <% else %>
+    <div class="text-muted small">-</div>
+  <% end %>
+<% else %>
+  <div class="day-slots">
+    <div class="slot slot-day">
+      <%# 日勤列：3段 %>
+      <% day_rows.each do |row| %>
+        <% staff = staff_by_id[row["staff_id"]] %>
+        <% next if staff.nil? %>
+        <% if row_key_for(staff) == row_key %>
+          <div class="small"><%= staff.last_name %></div>
+        <% end %>
+      <% end %>
+
+      <% early_rows.each do |row| %>
+        <% staff = staff_by_id[row["staff_id"]] %>
+        <% next if staff.nil? %>
+        <% if row_key_for(staff) == row_key %>
+          <div class="small shift-line">
+            <%= staff.last_name %><span class="shift-time">730-1630</span>
+          </div>
+        <% end %>
+      <% end %>
+
+      <% late_rows.each do |row| %>
+        <% staff = staff_by_id[row["staff_id"]] %>
+        <% next if staff.nil? %>
+        <% if row_key_for(staff) == row_key %>
+          <div class="small shift-line">
+            <%= staff.last_name %><span class="shift-time">11-20</span>
+          </div>
+        <% end %>
+      <% end %>
+    </div>
+
+    <div class="slot slot-night">
+      <% night_rows.each do |row| %>
+        <% staff = staff_by_id[row["staff_id"]] %>
+        <% next if staff.nil? %>
+        <% if row_key_for(staff) == row_key %>
+          <div class="small"><%= staff.last_name %></div>
+        <% end %>
+      <% end %>
+    </div>
+
+    <div class="slot slot-stay"></div>
+  </div>
+<% end %>

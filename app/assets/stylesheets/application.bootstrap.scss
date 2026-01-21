@@ -259,3 +259,14 @@ body.sidebar-left-collapsed #sidebar-col {
 .workable-wdays.is-enabled {
   opacity: 1;
 }
+
+/* =========================================
+   アラート行
+========================================= */
+.occ-row-alert td,
+.occ-row-alert th { height: 15px; }
+
+.occ-row-alert .text-danger {
+  line-height: 1.2;
+  font-size: 10px;
+}

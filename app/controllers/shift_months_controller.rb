@@ -35,6 +35,25 @@ class ShiftMonthsController < ApplicationController
       staff_by_id: @staff_by_id,
       draft: @saved
     ).call
+
+    alert_dates = (@month_begin..@month_end).to_a
+
+    @alerts_by_date = ShiftDrafts::AlertsBuilder.new(
+      dates: alert_dates,
+      draft: @saved,
+      staff_by_id: @staff_by_id,
+      required_by_date: @required_by_date,
+      enabled_by_date: {
+        day: @day_enabled_by_date,
+        early: @early_enabled_by_date,
+        late: @late_enabled_by_date,
+        night: @night_enabled_by_date
+      }
+    ).call
+
+    @occupation_order_with_alert = @occupation_order + [
+      { key: :alert, label: "アラート", row_class: "occ-row-alert" }
+    ]
   end
 
   def create
@@ -254,6 +273,25 @@ class ShiftMonthsController < ApplicationController
       staff_by_id: @staff_by_id,
       draft: @draft
     ).call # stats = statistics(統計・集計)の略
+
+    alert_dates = (@month_begin..@month_end).to_a
+
+    @alerts_by_date = ShiftDrafts::AlertsBuilder.new(
+      dates: alert_dates,
+      draft: @draft,
+      staff_by_id: @staff_by_id,
+      required_by_date: @required_by_date,
+      enabled_by_date: {
+        day: @day_enabled_by_date,
+        early: @early_enabled_by_date,
+        late: @late_enabled_by_date,
+        night: @night_enabled_by_date
+      }
+    ).call
+
+    @occupation_order_with_alert = @occupation_order + [
+      { key: :alert, label: "アラート", row_class: "occ-row-alert" }
+    ]
   end
 
   def confirm_draft
@@ -340,6 +378,8 @@ class ShiftMonthsController < ApplicationController
 
     enabled_maps = @shift_month.enabled_map_for_range(@dates)
     @day_enabled_by_date   = enabled_maps[:day]
+    @early_enabled_by_date = enabled_maps[:early]
+    @late_enabled_by_date  = enabled_maps[:late]
     @night_enabled_by_date = enabled_maps[:night]
 
     @day_effective_by_date = {}
