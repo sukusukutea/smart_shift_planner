@@ -21,7 +21,13 @@
   <% else %>
     <div class="req-count text-muted">日勤 -</div>
   <% end %>
-
+<% elsif row_key == :alert %>
+  <% msgs = Array(alerts_by_date[date]) %>
+  <% if msgs.any? %>
+    <div class="text-danger small"><%= msgs.join(" / ") %></div>
+  <% else %>
+    <div class="text-muted small">-</div>
+  <% end %>
 <% else %>
   <div class="day-slots">
     <div class="slot slot-day">

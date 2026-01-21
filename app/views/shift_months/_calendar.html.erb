@@ -69,15 +69,19 @@
             <td class="day-cell <%= in_month ? "" : "is-out" %>">
               <% extra = (defined?(extra_locals) && extra_locals.is_a?(Hash)) ? extra_locals : {} %>
               <%= render cell_partial,
-                         {
-                           date: date,
-                           in_month: in_month,
-                           occupation: occupation,
-                           row_key: row_key,
-                           shift_month: shift_month,
-                           day_enabled_by_date: day_enabled_by_date,
-                           required_by_date: required_by_date
-                         }.merge(extra) %>
+                {
+                    date: date,
+                    in_month: in_month,
+                    occupation: occupation,
+                    row_key: row_key,
+                    shift_month: shift_month,
+                    day_enabled_by_date: day_enabled_by_date,
+                    required_by_date: required_by_date,
+                    staff_by_id: (defined?(staff_by_id) ? staff_by_id : nil),
+                    draft: (defined?(draft) ? draft : nil),
+                    saved: (defined?(saved) ? saved : nil),
+                    alerts_by_date: (defined?(alerts_by_date) ? alerts_by_date : nil),
+                }.merge(extra) %>
             </td>
           <% end %>
         </tr>
