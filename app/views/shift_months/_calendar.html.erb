@@ -1,0 +1,88 @@
+<%# locals:
+  weeks:, shift_month:, occupation_order:, holiday_by_date:,
+  day_enabled_by_date:, night_enabled_by_date:, day_effective_by_date:, required_by_date:,
+  cell_partial:
+%>
+<%# extra_locals: セル側に追加で渡したいlocals（Hash） %>
+
+<table class="shift-calendar-month">
+  <colgroup>
+    <col class="col-occupation">
+    <% 7.times do %>
+      <col class="col-day">
+    <% end %>
+  </colgroup>
+
+  <thead>
+    <tr>
+      <th class="occ-name"></th>
+      <% %w[月 火 水 木 金 土 日].each_with_index do |w, i| %>
+        <% weekend_class = (i == 5 ? "is-sat" : (i == 6 ? "is-sun" : "")) %>
+        <th class="weekday <%= weekend_class %>"><%= w %></th>
+      <% end %>
+    </tr>
+  </thead>
+
+  <tbody>
+    <% weeks.each do |week| %>
+
+      <%# 週ヘッダー（日付＋勤務形態） %>
+      <tr class="week-head-row">
+        <td class="occ-name"></td>
+
+        <% week.each_with_index do |date, i| %>
+          <% in_month = (date.month == shift_month.month) %>
+          <% weekend_class = (i == 5 ? "is-sat" : (i == 6 ? "is-sun" : "")) %>
+          <% holiday = holiday_by_date[date] %>
+          <% is_holiday = holiday.present? %>
+
+          <% night_on = night_enabled_by_date[date] %>
+          <% day_on   = day_effective_by_date[date] %>
+
+          <td class="day-head <%= weekend_class %> <%= in_month ? "" : "is-out" %> <%= "is-holiday" if is_holiday %>">
+            <div class="day-date <%= 'is-holiday' if is_holiday %>">
+              <%= date.month %>月<%= date.day %>日
+              <% if is_holiday %>
+                <span class="holiday-name"><%= holiday.name %></span>
+              <% end %>
+            </div>
+
+            <div class="day-kinds">
+              <div class="kcell <%= day_on ? "" : "is-disabled" %>">日勤</div>
+              <div class="kcell <%= night_on ? "" : "is-disabled" %>">夜勤</div>
+              <div class="kcell">宿直</div>
+            </div>
+          </td>
+        <% end %>
+      </tr>
+
+      <%# 職種行（行ループ） %>
+      <% occupation_order.each do |occupation| %>
+        <% row_key = occupation[:key] %>
+
+        <tr class="<%= occupation[:row_class] %>">
+          <th class="occ-name"><%= occupation[:label] %></th>
+
+          <% week.each do |date| %>
+            <% in_month = (date.month == shift_month.month) %>
+
+            <td class="day-cell <%= in_month ? "" : "is-out" %>">
+              <% extra = (defined?(extra_locals) && extra_locals.is_a?(Hash)) ? extra_locals : {} %>
+              <%= render cell_partial,
+                         {
+                           date: date,
+                           in_month: in_month,
+                           occupation: occupation,
+                           row_key: row_key,
+                           shift_month: shift_month,
+                           day_enabled_by_date: day_enabled_by_date,
+                           required_by_date: required_by_date
+                         }.merge(extra) %>
+            </td>
+          <% end %>
+        </tr>
+      <% end %>
+
+    <% end %>
+  </tbody>
+</table>
