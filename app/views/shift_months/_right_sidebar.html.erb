@@ -69,7 +69,11 @@
               <label class="form-label small">休日設定</label>
               <div class="d-flex gap-2 align-items-end">
                 <div class="flex-grow-1">
-                  <%= date_field_tag :date, nil, class: "form-control form-control-sm" %>
+                  <%= date_field_tag :date,
+                        @month_begin.iso8601,
+                        min: @month_begin.iso8601,
+                        max: @month_end.iso8601,
+                        class: "form-control form-control-sm" %>
                 </div>
                 <div>
                   <%= submit_tag "+追加", class: "btn btn-sm btn-light border" %>
@@ -117,6 +121,8 @@
             <div>
               <%= date_field_tag :date,
                                 @selected_date&.iso8601,
+                                min: @month_begin.iso8601,
+                                max: @month_end.iso8601,
                                 class: "form-control form-control-sm" %>
             </div>
             <div>
