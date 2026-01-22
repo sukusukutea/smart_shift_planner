@@ -7,6 +7,7 @@ class ShiftMonth < ApplicationRecord
   has_many :staff_holiday_requests, dependent: :destroy
   has_many :shift_month_requirements, dependent: :destroy
   has_many :shift_day_requirements, dependent: :destroy
+  has_many :shift_day_designations, dependent: :destroy
 
   validates :year, presence: true
   validates :month, presence: true

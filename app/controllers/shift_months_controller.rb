@@ -3,7 +3,8 @@ class ShiftMonthsController < ApplicationController
   before_action :require_organization!
   before_action :set_shift_month, only: [:settings, :update_settings, :update_daily,
                                         :generate_draft, :preview, :confirm_draft, :show, :add_staff_holiday,
-                                        :remove_staff_holiday, :update_weekday_requirements]
+                                        :remove_staff_holiday, :update_weekday_requirements, :update_designation,
+                                        :remove_designation]
   before_action :build_calendar_vars, only: [:settings, :preview, :show]
 
   def new
@@ -115,6 +116,20 @@ class ShiftMonthsController < ApplicationController
     prepare_holiday_tab_vars
     @weekday_requirements = build_weekday_requirements_hash
     @day_req = @shift_month.required_counts_for(@selected_date, shift_kind: :day)
+
+    @selected_designation_staff =
+      if params[:designation_staff_id].present?
+        current_user.staffs.find_by(id: params[:designation_staff_id])
+      end
+
+    @designations_for_staff =
+      if @selected_designation_staff
+        @shift_month.shift_day_designations
+                    .where(staff: @selected_designation_staff)
+                    .order(:date)
+      else
+        ShiftDayDesignation.none
+      end
   end
 
   def update_settings
@@ -170,13 +185,44 @@ class ShiftMonthsController < ApplicationController
     redirect_to settings_shift_month_path(@shift_month, tab: "daily", date: params[:date]), alert: "保存に失敗しました：#{e.record.errors.full_messages.join(", ")}"
   end
 
+  def update_designation
+    date = Date.iso8601(params.require(:date))
+    staff_id = params.dig(:designation, :staff_id)
+    kind = params.dig(:designation, :shift_kind)
+
+    if staff_id.blank? || kind.blank?
+      redirect_to settings_shift_month_path(@shift_month, tab: "daily", date: date.iso8601), alert: "職員と勤務形態を選択してください"
+      return
+    end
+
+    ShiftDayDesignation.transaction do
+      record = @shift_month.shift_day_designations.find_or_initialize_by(date: date, shift_kind: kind)
+      record.staff_id = staff_id
+      record.save!
+    end
+
+    redirect_to settings_shift_month_path(@shift_month, tab: "daily", date: date.iso8601)
+  rescue ArgumentError
+    redirect_to settings_shift_month_path(@shift_month, tab: "daily"), alert: "日付が不正です"
+  rescue ActiveRecord::RecordInvalid => e
+    redirect_to settings_shift_month_path(@shift_month, tab: "daily" , date: params[:date]), alert: "保存に失敗しました: #{e.record.errors.full_messages.join(", ")}"
+  end
+
+  def remove_designation
+    designation = @shift_month.shift_day_designations.find(params[:designation_id])
+    staff_id = designation.staff_id
+    designation.destroy!
+
+    redirect_to settings_shift_month_path(@shift_month, tab: "daily", date: params[:date], designation_staff_id: staff_id)
+  end
+
   def add_staff_holiday
     staff = current_user.staffs.find(params[:staff_id])
     date = Date.iso8601(params[:date])
 
     @shift_month.staff_holiday_requests.find_or_create_by!(staff: staff, date: date)
 
-    redirect_to settings_shift_month_path(@shift_month, tab:"holiday", staff_id: staff.id), notice: "休日希望を追加しました"
+    redirect_to settings_shift_month_path(@shift_month, tab: "holiday", staff_id: staff.id), notice: "休日希望を追加しました"
   rescue ArgumentError
     redirect_to settings_shift_month_path(@shift_month, tab: "holiday", staff_id: params[:staff_id]), alert: "日付の形式が正しくありません"
   end
@@ -213,7 +259,7 @@ class ShiftMonthsController < ApplicationController
     redirect_to settings_shift_month_path(@shift_month, tab: "daily"), notice: "曜日別の必要人数を保存しました"
   rescue ApplicationController::ParameterMissing
     redirect_to setting_shift_month_path(@shift_month, tab: "daily"), alert: "入力が見つかりません"
-  rescue ActiveRecord::RecordInvaild => each
+  rescue ActiveRecord::RecordInvalid => each
     redirect_to setting_shift_month_path(@shift_month, tab: "daily"), alert: "保存に失敗しました：#{e.record.errors.full_messages.join(", ")}"
   end
 
@@ -399,6 +445,15 @@ class ShiftMonthsController < ApplicationController
     end
 
     load_holidays
+
+    rows = @shift_month.shift_day_designations
+                      .where(date: @month_begin..@month_end)
+                      .includes(:staff)
+
+    @designations_by_date = Hash.new { |h, k| h[k] = {} }
+    rows.each do |d|
+      @designations_by_date[d.date][d.shift_kind.to_s] = d
+    end
   end
 
   def load_holidays
