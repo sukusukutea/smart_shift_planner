@@ -21,6 +21,9 @@ Rails.application.routes.draw do
       patch :update_weekday_requirements
       patch :update_daily
 
+      post :update_designation
+      delete :remove_designation
+
       post :add_staff_holiday
       delete :remove_staff_holiday
 

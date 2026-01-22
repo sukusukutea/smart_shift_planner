@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_15_060819) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_21_232054) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -53,6 +53,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_15_060819) do
     t.index ["shift_month_id", "draft_token", "date", "shift_kind", "slot"], name: "idx_sda_draft_unique", unique: true, where: "(source = 0)"
     t.index ["shift_month_id"], name: "index_shift_day_assignments_on_shift_month_id"
     t.index ["staff_id"], name: "index_shift_day_assignments_on_staff_id"
+  end
+
+  create_table "shift_day_designations", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.date "date", null: false
+    t.integer "shift_kind", null: false
+    t.bigint "shift_month_id", null: false
+    t.bigint "staff_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["shift_month_id", "date", "shift_kind"], name: "idx_sdd_unique_per_month_date_kind", unique: true
+    t.index ["shift_month_id"], name: "index_shift_day_designations_on_shift_month_id"
+    t.index ["staff_id"], name: "index_shift_day_designations_on_staff_id"
   end
 
   create_table "shift_day_requirements", force: :cascade do |t|
@@ -172,6 +184,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_15_060819) do
   add_foreign_key "base_weekday_requirements", "users"
   add_foreign_key "shift_day_assignments", "shift_months"
   add_foreign_key "shift_day_assignments", "staffs"
+  add_foreign_key "shift_day_designations", "shift_months"
+  add_foreign_key "shift_day_designations", "staffs"
   add_foreign_key "shift_day_requirements", "shift_months"
   add_foreign_key "shift_day_settings", "shift_months"
   add_foreign_key "shift_day_styles", "shift_day_settings"

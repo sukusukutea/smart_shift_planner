@@ -8,6 +8,12 @@ module ShiftDrafts
       month_begin = Date.new(@shift_month.year, @shift_month.month, 1)
       month_end   = month_begin.end_of_month
 
+      designations = @shift_month.shift_day_designations.where(date: month_begin..month_end)
+      designations_by_date = Hash.new { |h, k| h[k] = {} }
+      designations.each do |d|
+        designations_by_date[d.date][d.shift_kind.to_s] = d.staff_id
+      end # 返り値 designations_by_date[date]["day"] => staff_id　みたいに引ける形
+
       draft = {}
 
       (month_begin..month_end).each do |date|
@@ -19,6 +25,14 @@ module ShiftDrafts
         day_hash = {} # その日の最終結果
 
         ShiftMonth::SHIFT_KINDS.each do |kind|
+          sid = designations_by_date.dig(date, kind.to_s)
+          if sid.present?
+            sid = sid.to_i
+            (day_hash[kind] ||= []) << { slot: (day_hash[kind]&.size || 0), staff_id: sid }
+            assigned_today.add(sid)
+            next unless kind == :day
+          end
+
           next unless enabled_map[kind] # OFFなら割当しない
 
           if kind == :day
@@ -35,8 +49,24 @@ module ShiftDrafts
               }
               .reject { |s| holiday_ids.include?(s.id) }
 
-            day_rows = []
-            slot = 0
+            day_rows = Array(day_hash[:day])
+            slot = day_rows.size
+            already_ids = day_rows.map { |row| row[:staff_id] }.compact.map(&:to_i)
+
+            already_nurse = 0
+            already_care  = 0
+
+            if already_ids.any?
+              already_nurse = scope.joins(:occupation)
+                                  .where(id: already_ids)
+                                  .where("occupations.name LIKE ?", "%看護%")
+                                  .count
+
+              already_care  = scope.joins(:occupation)
+                                  .where(id: already_ids)
+                                  .where("occupations.name LIKE ?", "%介護%")
+                                  .count
+            end
 
             fixed_staffs.each do |staff|
               occ_name = staff.occupation.name
@@ -65,8 +95,8 @@ module ShiftDrafts
             fixed_nurse = fixed_staffs.count { |s| s.occupation.name.include?("看護") }
             fixed_care  = fixed_staffs.count { |s| s.occupation.name.include?("介護") }
 
-            need_nurse = [counts[:nurse] - fixed_nurse, 0].max
-            need_care  = [counts[:care]  - fixed_care,  0].max
+            need_nurse = [counts[:nurse] - fixed_nurse - already_nurse, 0].max
+            need_care  = [counts[:care]  - fixed_care - already_care,  0].max
 
             base_exclude = assigned_today.to_a + holiday_ids
 

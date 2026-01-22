@@ -1,7 +1,7 @@
 <%# locals:
   date:, in_month:, occupation:, row_key:, shift_month:,
   day_enabled_by_date:, required_by_date:,
-  holiday_requests_by_date:
+  holiday_requests_by_date:, designations_by_date:
 %>
 
 <% if row_key == :req %>
@@ -19,6 +19,11 @@
 <% else %>
   <div class="day-slots">
     <div class="slot slot-day" data-shift-kind="day">
+      <% desig_day = designations_by_date.dig(date, "day") %>
+      <% if desig_day.present? && row_key_for(desig_day.staff) == row_key %>
+        <div class="small fw-bold"><%= desig_day.staff.last_name %></div>
+      <% end %>
+
       <% requests = holiday_requests_by_date[date] || [] %>
       <% requests.each do |request| %>
         <% if row_key_for(request.staff) == occupation[:key] %>
@@ -27,7 +32,13 @@
       <% end %>
     </div>
 
-    <div class="slot slot-night" data-shift-kind="night"></div>
+    <div class="slot slot-night" data-shift-kind="night">
+      <% desig_night = designations_by_date.dig(date, "night") %>
+      <% if desig_night.present? && row_key_for(desig_night.staff) == row_key %>
+        <div class="small fw-bold"><%= desig_night.staff.last_name %></div>
+      <% end %>
+    </div>
+
     <div class="slot slot-stay" data-shift-kind="stay"></div>
   </div>
 <% end %>
