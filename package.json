@@ -2,6 +2,7 @@
   "name": "app",
   "private": true,
   "devDependencies": {
+    "baseline-browser-mapping": "^2.9.18",
     "esbuild": "^0.27.0"
   },
   "scripts": {

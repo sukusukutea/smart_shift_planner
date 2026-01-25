@@ -28,6 +28,19 @@ class BaseWeekdayRequirementsController < ApplicationController
           rec.required_number = num
           rec.save!
         end
+
+        %w[early late night].each do |kind|
+          num = roles_hash[kind].to_i # トグル: "0"or"1"
+
+          rec = current_user.base_weekday_requirements.find_or_initialize_by(
+            shift_kind: kind,
+            day_of_week: dow,
+            role: :any
+          )
+
+          rec.required_number = num
+          rec.save!
+        end
       end
     end
 
@@ -41,10 +54,18 @@ class BaseWeekdayRequirementsController < ApplicationController
   private
 
   def build_table
-    hash = (0..6).index_with { { "nurse" => 0, "care" => 0 } }
+    hash = (0..6).index_with { { "nurse" => 0, "care" => 0, "early" => 0, "late" => 0, "night" => 0 } }
 
-    current_user.base_weekday_requirements.day.each do |r|
-      hash[r.day_of_week][r.role] = r.required_number
+    current_user.base_weekday_requirements.each do |r|
+      dow = r.day_of_week
+      kind = r.shift_kind.to_s
+
+      if kind == "day"
+        hash[dow][r.role] = r.required_number
+      else
+        next unless r.role == "any"
+        hash[dow][kind] = r.required_number
+      end
     end
 
     hash

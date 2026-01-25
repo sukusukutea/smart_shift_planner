@@ -253,6 +253,18 @@ class ShiftMonthsController < ApplicationController
           rec.required_number = num
           rec.save!
         end
+
+        %w[early late night].each do |kind|
+          num = roles_hash[kind].to_i
+
+          rec = @shift_month.shift_month_requirements.find_or_initialize_by(
+            shift_kind: kind,
+            day_of_week: dow,
+            role: :any
+          )
+          rec.required_number = num
+          rec.save!
+        end
       end
     end
 
