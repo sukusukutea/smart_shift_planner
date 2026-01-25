@@ -165,21 +165,14 @@
 
 
                 <div class="d-flex align-items-center gap-3 ms-1">
-                  <label class="d-flex align-items-center gap-1 mb-0">
-                    <%= radio_button_tag "day_setting[enabled][#{kind}]",
-                                        "1",
-                                        @enabled_map[kind] == true,
-                                        data: (kind == :day ? { action: "change->daily#toggleDayReq" } : {}) %>
-                    あり
-                  </label>
-
-                  <label class="d-flex align-items-center gap-1 mb-0">
-                    <%= radio_button_tag "day_setting[enabled][#{kind}]",
-                                        "0",
-                                        @enabled_map[kind] == false,
-                                        data: (kind == :day ? { action: "change->daily#toggleDayReq" } : {}) %>
-                    なし
-                  </label>
+                  <%= hidden_field_tag "day_setting[enabled][#{kind}]", 0 %>
+                  <div class="form-check form-switch m-0">
+                    <%= check_box_tag "day_setting[enabled][#{kind}]",
+                                      1,
+                                      @enabled_map[kind] == true,
+                                      class: "form-check-input",
+                                      data: (kind == :day ? { action: "change->daily#toggleDayReq" } : {}) %>
+                  </div>
                 </div>
               </div>
 
@@ -193,24 +186,24 @@
                   <div class="d-flex align-items-center flex-nowrap gap-1"
                         style="white-space: nowrap;">
                     <span class="text-muted"
-                          style="font-size: 13px; line-height: 1;">
+                          style="font-size: 12px; line-height: 1;">
                       看護
                     </span>
                     <%= number_field_tag "day_requirements[roles][nurse]",
                                         @day_req[:nurse],
                                         min: 0,
-                                        class: "form-control form-control-sm text-center py-o px-1",
-                                        style: "width:44px; height: 24px;" %>
+                                        class: "form-control form-control-sm text-center py-0 px-1",
+                                        style: "width:44px; height:25px; min-height:25px; padding-top:0; padding-bottom:0; line-height:1; font-size:13px; box-sizing:border-box;" %>
 
                     <span class="text-muted ms-1"
-                          style="font-size: 13px; line-height: 1;">
+                          style="font-size: 12px; line-height: 1;">
                       介護
                     </span>
                     <%= number_field_tag "day_requirements[roles][care]",
                                         @day_req[:care],
                                         min: 0,
                                         class: "form-control form-control-sm text-center py-0 px-1",
-                                        style: "width: 44px; height: 24px;" %>
+                                        style: "width:44px; height:25px; min-height:25px; padding-top:0; padding-bottom:0; line-height:1; font-size:13px; box-sizing:border-box;" %>
                   </div>
                 </div>
               <% end %>

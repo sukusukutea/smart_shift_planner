@@ -15,15 +15,16 @@ class ShiftMonth < ApplicationRecord
 
   SHIFT_KINDS = %i[day early late night].freeze
 
-  # 日別の勤務ON/OFFを返す（MVP:設定がなければ全部ON）
+  # 日別の勤務ON/OFFを返す
   def enabled_map_for(date)
     setting = shift_day_settings.includes(:shift_day_styles).find_by(date: date)
 
+    w = self.class.ui_wday(date)
     default = {
       day: true,
-      early: true,
-      late: true,
-      night: false
+      early: requirements_index[[:early, w]]&.dig(:any).to_i > 0,
+      late:  requirements_index[[:late,  w]]&.dig(:any).to_i > 0,
+      night: requirements_index[[:night, w]]&.dig(:any).to_i > 0,
     }
 
     # 設定がなければ全部の勤務をONにする（index_withで各勤務にtrueのハッシュつける）
@@ -41,16 +42,16 @@ class ShiftMonth < ApplicationRecord
     dates = Array(dates)
     date_set = dates.to_set
 
-    default_enabled = {
-      day: true,
-      early: true,
-      late: true,
-      night: false
-    }
-
     result = {}
     SHIFT_KINDS.each do |kind|
-      result[kind] = dates.index_with(default_enabled[kind])
+      if %i[early late night].include?(kind)
+        result[kind] = dates.index_with do |date|
+          w = self.class.ui_wday(date)
+          requirements_index[[kind, w]]&.dig(:any).to_i > 0
+        end
+      else
+        result[kind] = dates.index_with(true) # dayは常にtrue
+      end
     end
 
     settings = shift_day_settings.where(date: dates).includes(:shift_day_styles)
