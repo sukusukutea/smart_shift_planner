@@ -26,14 +26,16 @@ module ShiftDrafts
 
         ShiftMonth::SHIFT_KINDS.each do |kind|
           sid = designations_by_date.dig(date, kind.to_s)
-          if sid.present?
-            sid = sid.to_i
-            (day_hash[kind] ||= []) << { slot: (day_hash[kind]&.size || 0), staff_id: sid }
-            assigned_today.add(sid)
-            next unless kind == :day
-          end
+          next if sid.blank?
 
+          sid = sid.to_i
+          (day_hash[kind] ||= []) << { slot: (day_hash[kind]&.size || 0), staff_id: sid }
+          assigned_today.add(sid)
+        end
+
+        ShiftMonth::SHIFT_KINDS.each do |kind|
           next unless enabled_map[kind] # OFFなら割当しない
+          next if kind != :day && day_hash[kind].present?
 
           if kind == :day
             counts = @shift_month.required_counts_for(date, shift_kind: :day)
@@ -48,6 +50,7 @@ module ShiftDrafts
                 s.staff_workable_wdays.any? { |wd| wd.wday == wday }
               }
               .reject { |s| holiday_ids.include?(s.id) }
+              .reject { |s| assigned_today.include?(s.id) }
 
             day_rows = Array(day_hash[:day])
             slot = day_rows.size

@@ -196,8 +196,8 @@ class ShiftMonthsController < ApplicationController
     end
 
     ShiftDayDesignation.transaction do
-      record = @shift_month.shift_day_designations.find_or_initialize_by(date: date, shift_kind: kind)
-      record.staff_id = staff_id
+      record = @shift_month.shift_day_designations.find_or_initialize_by(date: date, staff_id: staff_id.to_i)
+      record.shift_kind = kind
       record.save!
     end
 
