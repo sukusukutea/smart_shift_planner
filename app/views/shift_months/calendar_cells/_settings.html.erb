@@ -21,7 +21,17 @@
     <div class="slot slot-day" data-shift-kind="day">
       <% desig_day = designations_by_date.dig(date, "day") %>
       <% if desig_day.present? && row_key_for(desig_day.staff) == row_key %>
-        <div class="small fw-bold"><%= desig_day.staff.last_name %></div>
+        <div class="small shift-line"><%= desig_day.staff.last_name %></div>
+      <% end %>
+
+      <% desig_day = designations_by_date.dig(date, "early") %>
+      <% if desig_day.present? && row_key_for(desig_day.staff) == row_key %>
+        <div class="small shift-line"><%= desig_day.staff.last_name %><span class="shift-time">730-1630</div>
+      <% end %>
+
+      <% desig_day = designations_by_date.dig(date, "late") %>
+      <% if desig_day.present? && row_key_for(desig_day.staff) == row_key %>
+        <div class="small shift-line"><%= desig_day.staff.last_name %><span class="shift-time">11-12</div>
       <% end %>
 
       <% requests = holiday_requests_by_date[date] || [] %>
@@ -35,7 +45,7 @@
     <div class="slot slot-night" data-shift-kind="night">
       <% desig_night = designations_by_date.dig(date, "night") %>
       <% if desig_night.present? && row_key_for(desig_night.staff) == row_key %>
-        <div class="small fw-bold"><%= desig_night.staff.last_name %></div>
+        <div class="small shift-line"><%= desig_night.staff.last_name %></div>
       <% end %>
     </div>
 

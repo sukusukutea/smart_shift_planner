@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_21_232054) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_25_031208) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -62,7 +62,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_21_232054) do
     t.bigint "shift_month_id", null: false
     t.bigint "staff_id", null: false
     t.datetime "updated_at", null: false
-    t.index ["shift_month_id", "date", "shift_kind"], name: "idx_sdd_unique_per_month_date_kind", unique: true
+    t.index ["shift_month_id", "date", "staff_id"], name: "idx_sdd_unique_per_month_date_staff", unique: true
     t.index ["shift_month_id"], name: "index_shift_day_designations_on_shift_month_id"
     t.index ["staff_id"], name: "index_shift_day_designations_on_staff_id"
   end
