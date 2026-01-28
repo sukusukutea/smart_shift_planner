@@ -117,6 +117,7 @@ class ShiftMonthsController < ApplicationController
     prepare_holiday_tab_vars
     @weekday_requirements = build_weekday_requirements_hash
     @day_req = @shift_month.required_counts_for(@selected_date, shift_kind: :day)
+    @day_skill_req = @shift_month.required_skill_counts_for(@selected_date)
 
     @selected_designation_staff =
       if params[:designation_staff_id].present?
@@ -144,7 +145,8 @@ class ShiftMonthsController < ApplicationController
   def update_daily
     date = Date.iso8601(params.require(:date))          # フォームからくる[date]は文字列のため、Date.iso8601で厳密にDateに変換。不正ならArgumentErrorになる。
     enabled_hash = params.dig(:day_setting, :enabled) || {}
-    roles = params.dig(:day_requirements, :roles) || {}
+    roles  = params.dig(:day_requirements, :roles)  || {}
+    skills = params.dig(:day_requirements, :skills) || {}
 
     ActiveRecord::Base.transaction do
       setting = @shift_month.shift_day_settings.find_or_create_by!(date: date)
@@ -169,13 +171,26 @@ class ShiftMonthsController < ApplicationController
           rec.required_number = num
           rec.save!
         end
+
+        %w[drive cook].each do |skill|
+          num = skills[skill].to_i
+          rec = @shift_month.shift_day_skill_requirements.find_or_initialize_by(
+            date: date,
+            shift_kind: :day,
+            skill: skill
+          )
+          rec.required_number = num
+          rec.save!
+        end
       else
         @shift_month.shift_day_requirements.where(date: date, shift_kind: :day).delete_all
+        @shift_month.shift_day_skill_requirements.where(date: date, shift_kind: :day).delete_all
       end
     end
 
     # requirements_index を使ってるなら念の為クリア（必要なら）
     @shift_month.clear_day_requirements_cache! if @shift_month.respond_to?(:clear_day_requirements_cache!)
+    @shift_month.clear_day_skill_requirements_cache! if @shift_month.respond_to?(:clear_day_skill_requirements_cache!)
 
     redirect_to settings_shift_month_path(@shift_month, tab: "daily", date: date.iso8601), notice: "保存しました"
   rescue ArgumentError

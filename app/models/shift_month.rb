@@ -9,6 +9,7 @@ class ShiftMonth < ApplicationRecord
   has_many :shift_day_requirements, dependent: :destroy
   has_many :shift_day_designations, dependent: :destroy
   has_many :shift_month_skill_requirements, dependent: :destroy
+  has_many :shift_day_skill_requirements, dependent: :destroy
 
   validates :year, presence: true
   validates :month, presence: true
@@ -70,6 +71,7 @@ class ShiftMonth < ApplicationRecord
   end
 
   def self.ui_wday(date) # Ruby上では日0 月1..となるため、UI上で月0 火1..となるよう変換する
+    return nil if date.nil?
     (date.wday + 6) % 7
   end
 
@@ -102,7 +104,7 @@ class ShiftMonth < ApplicationRecord
     end
   end
 
-  def clear_skill_requirements_cashe!
+  def clear_skill_requirements_cache!
     remove_instance_variable(:@skill_requirements_index) if instance_variable_defined?(:@skill_requirements_index)
   end
 
@@ -131,7 +133,7 @@ class ShiftMonth < ApplicationRecord
   end
 
   def clear_day_requirements_cache!
-    remove_instance_variable(:@day_requirements_index) if instance_variable_defined?(:@day_requirements_index)
+    remove_instance_variable(:@day_required_index) if instance_variable_defined?(:@day_required_index)
   end
 
   def copy_weekday_requirements_from_base!(user:)
@@ -166,7 +168,7 @@ class ShiftMonth < ApplicationRecord
       end
     end
 
-    clear_skill_requirements_cashe!
+    clear_skill_requirements_cache!
   end
 
   def day_requirements_index # 日別人員配置を一括取得して参照しやすくする index[[date, shift_kind_sym][role_sym]] => required_number
@@ -182,8 +184,36 @@ class ShiftMonth < ApplicationRecord
     end
   end
 
+  def day_skill_requirements_index
+    @day_skill_requirements_index ||= begin
+      rows = shift_day_skill_requirements.select(:date, :shift_kind, :skill, :required_number)
+
+      index = Hash.new { |h, k| h[k] = {} }
+      rows.each do |row|
+        key = [row.date, row.shift_kind.to_sym]
+        index[key][row.skill.to_sym] = row.required_number
+      end
+      index
+    end
+  end
+
+  def clear_day_skill_requirements_cache!
+    remove_instance_variable(:@day_skill_requirements_index) if instance_variable_defined?(:@day_skill_requirements_index)
+  end
+
   def required_skill_counts_for(date) # 返り値例： { drive: 2, cook: 1 }
+    return { drive: 0, cook: 0 } if date.nil?
+
+    day_skills = day_skill_requirements_index[[date, :day]]
+    if day_skills.present?
+      return {
+        drive: day_skills[:drive].to_i,
+        cook:  day_skills[:cook].to_i
+      }
+    end
+
     w = self.class.ui_wday(date)
+    return { drive: 0, cook: 0 } if w.nil?
     skills = skill_requirements_index[w] || {}
     {
       drive: skills[:drive].to_i,
