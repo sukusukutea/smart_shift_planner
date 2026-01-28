@@ -110,24 +110,12 @@ module ShiftDrafts
               slot: slot
             )
 
-            fixed_by_id = fixed_staffs.index_by(&:id)
-            fixed_nurse = 0
-            fixed_care  = 0
+            current_staff_ids = day_rows.map { |r| r[:staff_id] }.compact.map(&:to_i)
+            have_nurse = current_staff_ids.count { |sid| occ_name_by_staff_id[sid].to_s.include?("看護") }
+            have_care  = current_staff_ids.count { |sid| occ_name_by_staff_id[sid].to_s.include?("介護") }
 
-            day_rows.each do |row|
-              sid = row[:staff_id].to_i
-              next unless fixed_by_id.key?(sid)
-
-              staff = fixed_by_id[sid]
-              next if staff.nil?
-
-              occ_name = staff.occupation.name
-              fixed_nurse += 1 if occ_name.include?("看護")
-              fixed_care  += 1 if occ_name.include?("介護")
-            end
-
-            need_nurse = [counts[:nurse] - fixed_nurse - already_nurse, 0].max
-            need_care  = [counts[:care]  - fixed_care - already_care,  0].max
+            need_nurse = [counts[:nurse] - have_nurse, 0].max
+            need_care  = [counts[:care]  - have_nurse, 0].max
 
             slot = fill_day_roles!(
               day_rows: day_rows,
