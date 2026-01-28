@@ -8,6 +8,7 @@ class ShiftMonth < ApplicationRecord
   has_many :shift_month_requirements, dependent: :destroy
   has_many :shift_day_requirements, dependent: :destroy
   has_many :shift_day_designations, dependent: :destroy
+  has_many :shift_month_skill_requirements, dependent: :destroy
 
   validates :year, presence: true
   validates :month, presence: true
@@ -90,6 +91,21 @@ class ShiftMonth < ApplicationRecord
     end
   end
 
+  def skill_requirements_index
+    @skill_requirements_index ||= begin
+      rows = shift_month_skill_requirements.select(:day_of_week, :skill, :required_number)
+      index = Hash.new { |h, k| h[k] = {} }
+      rows.each do |r|
+        index[r.day_of_week][r.skill.to_sym] = r.required_number
+      end
+      index
+    end
+  end
+
+  def clear_skill_requirements_cashe!
+    remove_instance_variable(:@skill_requirements_index) if instance_variable_defined?(:@skill_requirements_index)
+  end
+
   # { nurse: 2, care: 1 } などのHashを返す
   def required_counts_for(date, shift_kind: :day)
 
@@ -136,6 +152,23 @@ class ShiftMonth < ApplicationRecord
     clear_requirements_cache! #requirements_indexを使ってるならキャッシュクリア
   end
 
+  def copy_skill_requirements_from_base!(user:)
+    BaseSkillRequirement.transaction do
+      base_rows = user.base_skill_requirements.select(:day_of_week, :skill, :required_number)
+
+      base_rows.each do |base|
+        rec = shift_month_skill_requirements.find_or_initialize_by(
+          day_of_week: base.day_of_week,
+          skill: base.skill
+        )
+        rec.required_number = base.required_number
+        rec.save!
+      end
+    end
+
+    clear_skill_requirements_cashe!
+  end
+
   def day_requirements_index # 日別人員配置を一括取得して参照しやすくする index[[date, shift_kind_sym][role_sym]] => required_number
     @day_required_index ||= begin
       rows = shift_day_requirements.select(:date, :shift_kind, :role, :required_number)
@@ -147,5 +180,14 @@ class ShiftMonth < ApplicationRecord
       end
       index
     end
+  end
+
+  def required_skill_counts_for(date) # 返り値例： { drive: 2, cook: 1 }
+    w = self.class.ui_wday(date)
+    skills = skill_requirements_index[w] || {}
+    {
+      drive: skills[:drive].to_i,
+      cook:  skills[:cook].to_i
+    }
   end
 end

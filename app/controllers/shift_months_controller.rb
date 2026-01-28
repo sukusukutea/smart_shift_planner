@@ -98,6 +98,7 @@ class ShiftMonthsController < ApplicationController
 
     if @shift_month.save
       @shift_month.copy_weekday_requirements_from_base!(user: current_user)
+      @shift_month.copy_skill_requirements_from_base!(user: current_user)
       redirect_to settings_shift_month_path(@shift_month)
     else
       flash.now[:alert] = "作成に失敗しました。入力内容を確認してください。"

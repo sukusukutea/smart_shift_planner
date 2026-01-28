@@ -41,6 +41,17 @@ class BaseWeekdayRequirementsController < ApplicationController
           rec.required_number = num
           rec.save!
         end
+
+        %w[drive cook].each do |skill|
+          num = roles_hash[skill].to_i
+
+          rec = current_user.base_skill_requirements.find_or_initialize_by(
+            day_of_week: dow,
+            skill: skill
+          )
+          rec.required_number = num
+          rec.save!
+        end
       end
     end
 
@@ -54,7 +65,9 @@ class BaseWeekdayRequirementsController < ApplicationController
   private
 
   def build_table
-    hash = (0..6).index_with { { "nurse" => 0, "care" => 0, "early" => 0, "late" => 0, "night" => 0 } }
+    hash = (0..6).index_with {
+      { "nurse" => 0, "care" => 0, "early" => 0, "late" => 0, "night" => 0, "drive" => 0, "cook" => 0 }
+    }
 
     current_user.base_weekday_requirements.each do |r|
       dow = r.day_of_week
@@ -66,6 +79,10 @@ class BaseWeekdayRequirementsController < ApplicationController
         next unless r.role == "any"
         hash[dow][kind] = r.required_number
       end
+    end
+
+    current_user.base_skill_requirements.each do |r|
+      hash[r.day_of_week][r.skill.to_s] = r.required_number
     end
 
     hash

@@ -23,7 +23,7 @@
             <thead>
               <tr class="text-center">
                 <th rowspan="2" class="small py-1 lh-1" style="background-color:#e6f0f0;">曜日</th>
-                <th colspan="2" class="small py-1 lh-1" style="background-color:#7fd9d2;">日勤</th>
+                <th colspan="4" class="small py-1 lh-1" style="background-color:#7fd9d2;">日勤</th>
                 <th rowspan="2" colspan="1" class="small py-1 lh-1" style="background-color:#e6f0f0;">早番</th>
                 <th rowspan="2" colspan="1" class="small py-1 lh-1" style="background-color:#e6f0f0;">遅番</th>
                 <th rowspan="2" colspan="1" class="small py-1 lh-1" style="background-color:#e6f0f0;">夜勤</th>
@@ -31,6 +31,8 @@
               <tr class="text-center">
                 <th class="small py-1 lh-1" style="background-color:#7fd9d2;">看護</th>
                 <th class="small py-1 lh-1" style="background-color:#7fd9d2;">介護</th>
+                <th class="small py-1 lh-1" style="background-color: #7fd9d2;">運転</th>
+                <th class="small py-1 lh-1" style="background-color: #7fd9d2;">調理</th>
               </tr>
             </thead>
 
@@ -52,6 +54,24 @@
                   <td class="py-1">
                     <%= number_field_tag "weekday_requirements[#{i}][care]",
                                          @rows[i]["care"],
+                                         min: 0,
+                                         inputmode: "numeric",
+                                         class: "weekday-req-input text-center border-0 bg-transparent p-0",
+                                         style: "width: 2.8em; outline: none;" %>
+                  </td>
+
+                  <td class="py-1">
+                    <%= number_field_tag "weekday_requirements[#{i}][drive]",
+                                         @rows[i]["drive"],
+                                         min: 0,
+                                         inputmode: "numeric",
+                                         class: "weekday-req-input text-center border-0 bg-transparent p-0",
+                                         style: "width: 2.8em; outline: none;" %>
+                  </td>
+
+                  <td class="py-1">
+                    <%= number_field_tag "weekday_requirements[#{i}][cook]",
+                                         @rows[i]["cook"],
                                          min: 0,
                                          inputmode: "numeric",
                                          class: "weekday-req-input text-center border-0 bg-transparent p-0",

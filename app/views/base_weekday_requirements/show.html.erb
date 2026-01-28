@@ -14,11 +14,11 @@
                       class: "btn btn-outline-secondary btn-sm py-1 px-2" %>
         </div>
 
-        <table class="table table-sm table-bordered text-center align-middle mx-auto" style="max-width: 260px;">
+        <table class="table table-sm table-bordered text-center align-middle mx-auto" style="max-width: 300px;">
           <thead>
             <tr class="text-center">
               <th rowspan="2" class="small py-1 lh-1" style="background-color:#e6f0f0;">曜日</th>
-              <th colspan="2" class="small py-1 lh-1" style="background-color:#7fd9d2;">日勤</th>
+              <th colspan="4" class="small py-1 lh-1" style="background-color:#7fd9d2;">日勤</th>
               <th rowspan="2" colspan="1" class="small py-1 lh-1" style="background-color: #e6f0f0;">早番</th>
               <th rowspan="2" colspan="1" class="small py-1 lh-1" style="background-color: #e6f0f0;">遅番</th>
               <th rowspan="2" colspan="1" class="small py-1 lh-1" style="background-color: #e6f0f0;">夜勤</th>
@@ -26,6 +26,8 @@
             <tr class="text-center">
               <th class="small py-1 lh-1" style="background-color: #7fd9d2;">看護</th>
               <th class="small py-1 lh-1" style="background-color: #7fd9d2;">介護</th>
+              <th class="small py-1 lh-1" style="background-color: #7fd9d2;">運転</th>
+              <th class="small py-1 lh-1" style="background-color: #7fd9d2;">調理</th>
             </tr>
           </thead>
 
@@ -36,6 +38,8 @@
                 <td><%= wdays[i] %></td>
                 <td><%= @rows[i]["nurse"] %></td>
                 <td><%= @rows[i]["care"] %></td>
+                <td><%= @rows[i]["drive"] %></td>
+                <td><%= @rows[i]["cook"] %></td>
                 <td><%= @rows[i]["early"] > 0 ? "○" : "-" %></td>
                 <td><%= @rows[i]["late"]  > 0 ? "○" : "-" %></td>
                 <td><%= @rows[i]["night"] > 0 ? "○" : "-" %></td>

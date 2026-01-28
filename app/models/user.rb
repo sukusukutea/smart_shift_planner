@@ -3,6 +3,7 @@ class User < ApplicationRecord
   has_many :staffs, dependent: :destroy
   has_many :shift_months, dependent: :destroy
   has_many :base_weekday_requirements, dependent: :destroy
+  has_many :base_skill_requirements, dependent: :destroy
 
   attr_accessor :organization_name
 

@@ -10,9 +10,20 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_25_031208) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_25_051714) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "base_skill_requirements", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "day_of_week"
+    t.integer "required_number", default: 0, null: false
+    t.integer "skill"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["user_id", "day_of_week", "skill"], name: "idx_base_skill_requirements_unique", unique: true
+    t.index ["user_id"], name: "index_base_skill_requirements_on_user_id"
+  end
 
   create_table "base_weekday_requirements", force: :cascade do |t|
     t.datetime "created_at", null: false
@@ -110,6 +121,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_25_031208) do
     t.index ["shift_month_id"], name: "index_shift_month_requirements_on_shift_month_id"
   end
 
+  create_table "shift_month_skill_requirements", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "day_of_week"
+    t.integer "required_number", default: 0, null: false
+    t.bigint "shift_month_id", null: false
+    t.integer "skill"
+    t.datetime "updated_at", null: false
+    t.index ["shift_month_id", "day_of_week", "skill"], name: "idx_shift_month_skill_requirements_unique", unique: true
+    t.index ["shift_month_id"], name: "index_shift_month_skill_requirements_on_shift_month_id"
+  end
+
   create_table "shift_months", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.integer "holiday_days"
@@ -181,6 +203,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_25_031208) do
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
 
+  add_foreign_key "base_skill_requirements", "users"
   add_foreign_key "base_weekday_requirements", "users"
   add_foreign_key "shift_day_assignments", "shift_months"
   add_foreign_key "shift_day_assignments", "staffs"
@@ -190,6 +213,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_25_031208) do
   add_foreign_key "shift_day_settings", "shift_months"
   add_foreign_key "shift_day_styles", "shift_day_settings"
   add_foreign_key "shift_month_requirements", "shift_months"
+  add_foreign_key "shift_month_skill_requirements", "shift_months"
   add_foreign_key "shift_months", "organizations"
   add_foreign_key "shift_months", "users"
   add_foreign_key "staff_holiday_requests", "shift_months"
