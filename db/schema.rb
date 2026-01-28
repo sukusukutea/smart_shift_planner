@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_25_051714) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_28_082017) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -97,6 +97,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_25_051714) do
     t.datetime "updated_at", null: false
     t.index ["shift_month_id", "date"], name: "index_shift_day_settings_on_shift_month_id_and_date", unique: true
     t.index ["shift_month_id"], name: "index_shift_day_settings_on_shift_month_id"
+  end
+
+  create_table "shift_day_skill_requirements", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.date "date", null: false
+    t.integer "required_number", default: 0, null: false
+    t.integer "shift_kind", null: false
+    t.bigint "shift_month_id", null: false
+    t.integer "skill", null: false
+    t.datetime "updated_at", null: false
+    t.index ["shift_month_id", "date", "shift_kind", "skill"], name: "idx_unique_day_skill_req", unique: true
+    t.index ["shift_month_id"], name: "index_shift_day_skill_requirements_on_shift_month_id"
   end
 
   create_table "shift_day_styles", force: :cascade do |t|
@@ -211,6 +223,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_25_051714) do
   add_foreign_key "shift_day_designations", "staffs"
   add_foreign_key "shift_day_requirements", "shift_months"
   add_foreign_key "shift_day_settings", "shift_months"
+  add_foreign_key "shift_day_skill_requirements", "shift_months"
   add_foreign_key "shift_day_styles", "shift_day_settings"
   add_foreign_key "shift_month_requirements", "shift_months"
   add_foreign_key "shift_month_skill_requirements", "shift_months"

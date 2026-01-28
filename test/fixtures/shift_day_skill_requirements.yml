@@ -1,0 +1,15 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  shift_month: one
+  date: 2026-01-28
+  shift_kind: 1
+  skill: 1
+  required_number: 1
+
+two:
+  shift_month: two
+  date: 2026-01-28
+  shift_kind: 1
+  skill: 1
+  required_number: 1
