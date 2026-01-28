@@ -8,9 +8,16 @@
   <% day_on = day_enabled_by_date[date] %>
 
   <% if day_on %>
-    <% req = required_by_date[date] || { nurse: 0, care: 0 } %>
+    <% req_roles  = required_by_date[date] || { nurse: 0, care: 0 } %>
+    <% req_skills = shift_month.required_skill_counts_for(date) || { drive: 0, cook: 0 } %>
+    <% labels = [] %>
+    <% labels << "早" if early_enabled_by_date&.[](date) %>
+    <% labels << "遅" if late_enabled_by_date&.[](date) %>
     <div class="req-count text-muted">
-      日勤 看護:<%= req[:nurse] %> 介護:<%= req[:care] %>
+      日勤 看<%= req_roles[:nurse] %> 介<%= req_roles[:care] %> 運<%= req_skills[:drive] %> 調<%= req_skills[:cook] %>
+      <% if labels.any? %>
+        <span class="ms-2"><%= labels.join("") %></span>
+      <% end %>
     </div>
   <% else %>
     <div class="req-count text-muted">日勤 -</div>
