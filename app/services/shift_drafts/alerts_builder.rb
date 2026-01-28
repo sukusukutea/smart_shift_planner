@@ -1,11 +1,12 @@
 module ShiftDrafts
   class AlertsBuilder
-    def initialize(dates:, draft:, staff_by_id:, required_by_date:, enabled_by_date:)
+    def initialize(dates:, draft:, staff_by_id:, required_by_date:, enabled_by_date:, shift_month:)
       @dates = dates
       @draft = draft
       @staff_by_id = staff_by_id
       @required_by_date = required_by_date
       @enabled_by_date = enabled_by_date
+      @shift_month = shift_month
     end
 
     def call
@@ -17,7 +18,7 @@ module ShiftDrafts
         dkey = date.iso8601
         kinds_hash = @draft[dkey] || {}
 
-        # ---- 日勤不足（day+early+lateを合算して看護/介護を数える）----
+        # ---- 日勤不足（dayのみで看護/介護を数える）----
         if enabled?(:day, date)
           req = @required_by_date[date] || { nurse: 0, care: 0 }
           req_nurse = req[:nurse].to_i
@@ -34,6 +35,21 @@ module ShiftDrafts
               parts << "介#{lack_care}不足"  if lack_care  > 0
               list << "日勤：#{parts.join(' ')}"
             end
+          end
+        end
+
+        # 日勤スキル不足(dayのみで運転/調理を数える)
+        if enabled?(:day, date)
+          req_skill = @shift_month.required_skill_counts_for(date) || { drive: 0, cook: 0 }
+          actual_skill = day_actual_skill_counts(kinds_hash)
+          lack_drive = [req_skill[:drive].to_i - actual_skill[:drive], 0].max
+          lack_cook  = [req_skill[:cook].to_i  - actual_skill[:cook],  0].max
+
+          if lack_drive > 0 || lack_cook > 0
+            parts = []
+            parts << "運転#{lack_drive}不足" if lack_drive > 0
+            parts << "調理#{lack_cook}不足"  if lack_cook  > 0
+            list << parts.join(' ')
           end
         end
 
@@ -61,26 +77,44 @@ module ShiftDrafts
       Array(rows).empty?
     end
 
-    # day/early/late の rows から occupation を見て nurse/care を数える
+    # day の rows から occupation をみて nurse/care を数える
     def day_actual_counts(kinds_hash)
       nurse = 0
       care = 0
 
-      %w[day early late].each do |kind|
-        Array(kinds_hash[kind]).each do |row|
-          sid = extract_staff_id(row)
-          next if sid.nil?
+      Array(kinds_hash["day"]).each do |row|
+        sid = extract_staff_id(row)
+        next if sid.nil?
 
-          staff = @staff_by_id[sid.to_i]
-          next if staff.nil?
-          occ_name = staff.occupation&.name.to_s
+        staff = @staff_by_id[sid.to_i]
+        next if staff.nil?
+        occ_name = staff.occupation&.name.to_s
 
-          nurse += 1 if occ_name.include?("看護")
-          care  += 1 if occ_name.include?("介護")
-        end
+        nurse += 1 if occ_name.include?("看護")
+        care  += 1 if occ_name.include?("介護")
       end
 
       { nurse: nurse, care: care }
+    end
+
+    # dayのrowsからstaff.can_drive/ staff.can_cookを見てスキル充足を数える
+
+    def day_actual_skill_counts(kinds_hash)
+      drive = 0
+      cook  = 0
+
+      Array(kinds_hash["day"]).each do |row|
+        sid = extract_staff_id(row)
+        next if sid.nil?
+
+        staff = @staff_by_id[sid.to_i]
+        next if staff.nil?
+
+        drive += 1 if staff.respond_to?(:can_drive) && staff.can_drive
+        cook  += 1 if staff.respond_to?(:can_cook)  && staff.can_cook
+      end
+
+      { drive: drive, cook: cook }
     end
 
     def extract_staff_id(row)

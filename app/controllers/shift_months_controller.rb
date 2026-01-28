@@ -49,7 +49,8 @@ class ShiftMonthsController < ApplicationController
         early: @early_enabled_by_date,
         late: @late_enabled_by_date,
         night: @night_enabled_by_date
-      }
+      },
+      shift_month: @shift_month
     ).call
 
     @occupation_order_with_alert = @occupation_order + [
@@ -360,7 +361,8 @@ class ShiftMonthsController < ApplicationController
         early: @early_enabled_by_date,
         late: @late_enabled_by_date,
         night: @night_enabled_by_date
-      }
+      },
+      shift_month: @shift_month
     ).call
 
     @occupation_order_with_alert = @occupation_order + [
