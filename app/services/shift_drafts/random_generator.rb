@@ -115,7 +115,7 @@ module ShiftDrafts
             have_care  = current_staff_ids.count { |sid| occ_name_by_staff_id[sid].to_s.include?("介護") }
 
             need_nurse = [counts[:nurse] - have_nurse, 0].max
-            need_care  = [counts[:care]  - have_nurse, 0].max
+            need_care  = [counts[:care]  - have_care,  0].max
 
             slot = fill_day_roles!(
               day_rows: day_rows,
