@@ -13,24 +13,13 @@ class ShiftMonthsController < ApplicationController
   end
 
   def show
-    assignments = @shift_month.shift_day_assignments.confirmed
-                              .where(date: @month_begin..@month_end)
-                              .select(:date, :shift_kind, :staff_id, :slot)
-
-    @saved = Hash.new { |h, k| h[k] = Hash.new { |hh, kk| hh[kk] = [] } }
-    assignments.each do |a|
-      dkey = a.date.iso8601
-      kind = a.shift_kind.to_s
-      @saved[dkey][kind] << { "slot" => a.slot, "staff_id" => a.staff_id }
-    end
-
-    @saved.each_value do |kinds_hash|
-      kinds_hash.each_value do |rows|
-        rows.sort_by! { |r| r["slot"].to_i }
-      end
-    end
+    scope = @shift_month.shift_day_assignments.confirmed.where(date: @month_begin..@month_end)
+    @saved = build_assignments_hash(scope.select(:id, :date, :shift_kind, :staff_id, :slot))
 
     preload_staffs_for
+
+    @required_skill_by_date = build_required_skill_by_date
+
     @stats_rows = ShiftDrafts::StatsBuilder.new(
       shift_month: @shift_month,
       staff_by_id: @staff_by_id,
@@ -335,13 +324,11 @@ class ShiftMonthsController < ApplicationController
     scope = @shift_month.shift_day_assignments.draft
     scope = scope.where(draft_token: token) if token.present?
 
-    @draft = Hash.new { |h, k| h[k] = Hash.new { |hh, kk| hh[kk] = [] } }
-    scope.ordered.find_each do |a|
-      dkey = a.date.iso8601
-      @draft[dkey][a.shift_kind.to_s] << { "slot" => a.slot, "staff_id" => a.staff_id }
-    end
+    @draft = build_assignments_hash(scope.select(:id, :date, :shift_kind, :staff_id, :slot))
 
     preload_staffs_for # staffのデータ
+
+    @required_skill_by_date = build_required_skill_by_date
 
     @stats_rows = ShiftDrafts::StatsBuilder.new(
       shift_month: @shift_month,
@@ -529,5 +516,28 @@ class ShiftMonthsController < ApplicationController
     end
 
     hash
+  end
+
+  #ShiftDayAssignmentのrelationから、{ "YYYY-MM-DD" => { "day" => [{"slot"=>..,"staff_id"=>..}, ...], ... } } を作る
+  def build_assignments_hash(scope)
+    h = Hash.new { |hh, dkey| hh[dkey] = Hash.new { |hhh, kind| hhh[kind] = [] } }
+
+    scope.find_each do |a|
+      dkey = a.date.iso8601
+      kind = a.shift_kind.to_s
+      h[dkey][kind] << { "slot" => a.slot, "staff_id" => a.staff_id }
+    end
+
+    h.each_value do |kinds_hash|
+      kinds_hash.each_value do |rows|
+        rows.sort_by! { |r| r["slot"].to_i }
+      end
+    end
+
+    h
+  end
+
+  def build_required_skill_by_date
+    @dates.index_with { |date| @shift_month.required_skill_counts_for(date) }
   end
 end

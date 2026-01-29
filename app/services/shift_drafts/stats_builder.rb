@@ -30,15 +30,19 @@ module ShiftDrafts
         end
       end
 
-      holiday_counts = Hash.new(0)
+      total_days = date_keys.length
+      worked_days = Hash.new(0)
+
       date_keys.each do |dkey|
         kinds = @draft[dkey] || {}
-        assigned_ids = kinds.values.flat_map { |rows|
-          Array(rows).map { |row| extract_staff_id(row) }
-        }.compact.uniq
+        assigned_ids =
+          kinds.values
+               .flat_map { |rows| Array(rows).map { |row| extract_staff_id(row) } }
+               .compact
+               .uniq
 
-        staff_ids.each do |sid|
-          holiday_counts[sid] += 1 unless assigned_ids.include?(sid)
+        assigned_ids.each do |sid|
+          worked_days[sid] += 1
         end
       end
 
@@ -53,7 +57,7 @@ module ShiftDrafts
           early: counts[sid][:early],
           late:  counts[sid][:late],
           night: counts[sid][:night],
-          holiday: holiday_counts[sid]
+          holiday: total_days - worked_days[sid]
         }
       }
     end
