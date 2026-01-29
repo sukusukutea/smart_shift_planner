@@ -1,6 +1,8 @@
 <%# locals:
   weeks:, shift_month:, occupation_order:, holiday_by_date:,
   day_enabled_by_date:, night_enabled_by_date:, day_effective_by_date:, required_by_date:,
+  early_enabled_by_date:, late_enabled_by_date:, required_skill_by_date:,
+  staff_by_id:, draft:, saved:, alerts_by_date:, designations_by_date:, holiday_requests_by_date:,
   cell_partial:
 %>
 <%# extra_locals: セル側に追加で渡したいlocals（Hash） %>
@@ -77,8 +79,9 @@
                     shift_month: shift_month,
                     day_enabled_by_date: day_enabled_by_date,
                     early_enabled_by_date: (defined?(early_enabled_by_date) ? early_enabled_by_date : nil),
-                    late_enabled_by_date:  (defined?(early_enabled_by_date) ? late_enabled_by_date  : nil),
+                    late_enabled_by_date:  (defined?(late_enabled_by_date) ? late_enabled_by_date  : nil),
                     required_by_date: required_by_date,
+                    required_skill_by_date: (defined?(required_skill_by_date) ? required_skill_by_date : nil),
                     staff_by_id: (defined?(staff_by_id) ? staff_by_id : nil),
                     draft: (defined?(draft) ? draft : nil),
                     saved: (defined?(saved) ? saved : nil),

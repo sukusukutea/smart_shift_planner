@@ -1,7 +1,7 @@
 <%# locals:
   date:, in_month:, occupation:, row_key:, shift_month:,
   day_enabled_by_date:, early_enabled_by_date:, late_enabled_by_date:,
-  required_by_date:, alerts_by_date:,
+  required_by_date:, required_skill_by_date:, alerts_by_date:,
   draft:, staff_by_id:
 %>
 
@@ -16,7 +16,10 @@
 
   <% if day_on %>
     <% req_roles  = required_by_date[date] || { nurse: 0, care: 0 } %>
-    <% req_skills = shift_month.required_skill_counts_for(date) || { drive: 0, cook: 0 } %>
+    <% req_skills =
+         (defined?(required_skill_by_date) && required_skill_by_date) ?
+         (required_skill_by_date[date] || { drive: 0, cook: 0 }) :
+         { drive: 0, cook: 0 } %>
     <% labels = [] %>
     <% labels << "早" if early_enabled_by_date&.[](date) %>
     <% labels << "遅" if late_enabled_by_date&.[](date) %>
