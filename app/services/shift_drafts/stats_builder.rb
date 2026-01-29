@@ -46,18 +46,27 @@ module ShiftDrafts
         end
       end
 
+      required_holidays = @shift_month.holiday_days.to_i
+
       staff_ids.sort_by { |sid|
         s = @staff_by_id[sid]
         [s.last_name_kana, s.first_name_kana]
       }
       .map { |sid|
+        staff = @staff_by_id[sid]
+        holiday_count = total_days - worked_days[sid]
+        is_free = staff.respond_to?(:workday_constraint) && staff.workday_constraint == "free"
+        holiday_shortage = is_free && required_holidays > 0 && holiday_count.to_i < required_holidays
+
         {
           staff: @staff_by_id[sid],
+          staff: staff,
           day:   counts[sid][:day],
           early: counts[sid][:early],
           late:  counts[sid][:late],
           night: counts[sid][:night],
-          holiday: total_days - worked_days[sid]
+          holiday: holiday_count,
+          holiday_shortage: holiday_shortage
         }
       }
     end

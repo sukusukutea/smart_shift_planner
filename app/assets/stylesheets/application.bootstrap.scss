@@ -270,3 +270,9 @@ body.sidebar-left-collapsed #sidebar-col {
   line-height: 1.2;
   font-size: 10px;
 }
+
+.staff-stats-table tr.fixed-staff-row > th,
+.staff-stats-table tr.fixed-staff-row > td {
+  background-color: #f2f2f2;
+  color: #666;
+}

@@ -13,14 +13,22 @@
       </tr>
     </thead>
     <tbody>
-      <% stats_rows.each do |row| %>
-        <tr>
+      <% sorted_rows =
+          stats_rows.sort_by do |row|
+            staff = row[:staff]
+            staff.workday_constraint == "free" ? 0 : 1
+          end
+      %>
+      <% sorted_rows.each do |row| %>
+        <tr class="<%= row[:staff].workday_constraint == 'fixed' ? 'fixed-staff-row' : '' %>">
           <td><%= row[:staff].last_name %> <%= row[:staff].first_name %></td>
           <td><%= row[:day] %></td>
           <td><%= row[:early] %></td>
           <td><%= row[:late] %></td>
           <td><%= row[:night] %></td>
-          <td><%= row[:holiday] %></td>
+          <td class="<%= row[:holiday_shortage] ? 'bg-danger-subtle text-danger fw-bold' : '' %>">
+            <%= row[:holiday] %>
+          </td>
         </tr>
       <% end %>
     </tbody>
