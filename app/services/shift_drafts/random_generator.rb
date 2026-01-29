@@ -9,6 +9,11 @@ module ShiftDrafts
       month_begin = Date.new(@shift_month.year, @shift_month.month, 1)
       month_end   = month_begin.end_of_month
 
+      @worked_days_by_staff, @last_worked_by_staff = build_worked_indexes(
+        month_begin: month_begin,
+        month_end: month_end
+      )
+
       designations = @shift_month.shift_day_designations.where(date: month_begin..month_end)
       designations_by_date = Hash.new { |h, k| h[k] = {} }
       designations.each do |d|
@@ -45,6 +50,7 @@ module ShiftDrafts
           sid = sid.to_i
           (day_hash[kind] ||= []) << { slot: (day_hash[kind]&.size || 0), staff_id: sid }
           assigned_today.add(sid)
+          track_work!(sid, date: date)
         end
 
         ShiftMonth::SHIFT_KINDS.each do |kind|
@@ -82,6 +88,7 @@ module ShiftDrafts
               if occ_name.include?("事務") || occ_name.include?("管理栄養士")
                 day_rows << { slot: slot, staff_id: staff.id }
                 assigned_today.add(staff.id)
+                track_work!(staff.id, date: date)
                 slot += 1
                 next
               end
@@ -97,6 +104,7 @@ module ShiftDrafts
 
               day_rows << { slot: slot, staff_id: staff.id }
               assigned_today.add(staff.id)
+              track_work!(staff.id, date: date)
               slot += 1
             end
 
@@ -131,11 +139,12 @@ module ShiftDrafts
             next
           end
 
-          staff = pick_staff_for(kind, exclude_ids: assigned_today.to_a + holiday_ids)    # 返り値：今日すでに使ったIDがいればStaffオブジェクト、いなければnil
+          staff = pick_staff_for(kind, exclude_ids: assigned_today.to_a + holiday_ids, date: date)    # 返り値：今日すでに使ったIDがいればStaffオブジェクト、いなければnil
           next if staff.nil? # 候補0なら空欄
 
           (day_hash[kind] ||= []) << { slot: 0, staff_id: staff.id }
           assigned_today.add(staff.id)
+          track_work!(staff.id, date: date)
         end
 
         draft[date.iso8601] = day_hash # １日のドラフトを格納
@@ -201,7 +210,9 @@ module ShiftDrafts
       scope = scope.where.not(id: exclude_ids) if exclude_ids.any?  # any?で配列に一つでも要素があればture. exclude_idsは含めない
       # ここまでで、kindがtrue かつ すでに使用したIDではない、の条件で満たされたscopeができる。
 
-      scope.order(Arel.sql("RANDOM()")).first # Rails7以降、Arel.sqlとは生SQL文字列をそのまま渡すと警告が出るため、意図したSQLと明示
+      # 候補IDを取ってRuby側で「直近で働いていない順」→「勤務日数が少ない順」に並べて選ぶ
+      candidate_ids = scope.pluck(:id)
+      pick_by_priority(candidate_ids, date: date)
     end
 
     # 日勤スキルを未選定から追加で埋める。候補をDBから一括取得してshuffleし、Ruby側でpopしていく
@@ -225,6 +236,7 @@ module ShiftDrafts
         sid = drive_ids.pop
         day_rows << { slot: slot, staff_id: sid }
         assigned_today.add(sid)
+        track_work!(sid, date: date)
         slot += 1
         need_drive -= 1
       end
@@ -236,6 +248,7 @@ module ShiftDrafts
         sid = cook_ids.pop
         day_rows << { slot: slot, staff_id: sid }
         assigned_today.add(sid)
+        track_work!(sid, date: date)
         slot += 1
         need_cook -= 1
       end
@@ -258,7 +271,7 @@ module ShiftDrafts
       end
 
       scope = scope.where.not(id: exclude_ids) if exclude_ids.any?
-      scope.pluck(:id).shuffle
+      sort_ids_by_priority(scope.pluck(:id), date: date)
     end
 
     def fill_day_roles!(day_rows:, date:, need_nurse:, need_care:, assigned_today:, holiday_ids:, slot:)
@@ -269,6 +282,7 @@ module ShiftDrafts
         sid = nurse_ids.pop
         day_rows << { slot: slot, staff_id: sid }
         assigned_today.add(sid)
+        track_work!(sid, date: date)
         slot += 1
         need_nurse -= 1
       end
@@ -280,6 +294,7 @@ module ShiftDrafts
         sid = care_ids.pop
         day_rows << { slot: slot, staff_id: sid }
         assigned_today.add(sid)
+        track_work!(sid, date: date)
         slot += 1
         need_care -= 1
       end
@@ -303,7 +318,49 @@ module ShiftDrafts
       end
 
       scope = scope.where.not(id: exclude_ids) if exclude_ids.any?
-      scope.pluck(:id).shuffle
+      sort_ids_by_priority(scope.pluck(:id), date: date)
+    end
+
+    # 日単位で「勤務日数」と「最終勤務日」を作る worked_days_by_staff => { staff_id => 12, ... }, last_worked_by_staff => { staff_id => Date, ... }
+    def build_worked_indexes(month_begin:, month_end:) 
+      worked = Hash.new(0)
+      last  = {}
+
+      [worked, last]
+    end
+
+    def pick_by_priority(candidate_ids, date:)
+      return nil if candidate_ids.blank?
+
+      ids = sort_ids_by_priority(candidate_ids, date: date)
+
+      @active_scope.find_by(id: ids.last)
+    end
+
+    def sort_ids_by_priority(ids, date:) # 「直近で働いていない順」→「勤務日数が少ない順」に並べ変える（同点はランダムで揺らす）
+      Array(ids).sort_by do |sid|
+        days_since = days_since_last_work(sid, date: date) #大きいほど優先(=最近働いてない)
+        [
+          days_since,                        # 直近抑制 小さい→大きい（末尾が最近働いていない人）
+          -@worked_days_by_staff[sid].to_i,    # 次に勤務日数が少ない人（末尾が「勤務日数少ない人」）
+          rand                                # 同点揺らぎ
+        ]
+      end
+    end
+
+    def days_since_last_work(staff_id, date:)
+      last = @last_worked_by_staff[staff_id]
+      return 10_000 if last.nil?
+      (date - last).to_i
+    end
+
+    def track_work!(staff_id, date:) #生成中の割り当てを評価用indexに反映
+      return if staff_id.blank? || date.nil?
+      sid = staff_id.to_i
+
+      @worked_days_by_staff[sid] = @worked_days_by_staff[sid].to_i + 1
+      prev = @last_worked_by_staff[sid]
+      @last_worked_by_staff[sid] = prev.nil? ? date : [prev, date].max
     end
   end
 end

@@ -282,11 +282,13 @@ class ShiftMonthsController < ApplicationController
   end
 
   def generate_draft
-    draft_hash = ShiftDrafts::RandomGenerator.new(shift_month: @shift_month).call
     token = SecureRandom.hex(8)
+    @shift_month.shift_day_assignments.draft.delete_all
+
+    draft_hash = ShiftDrafts::RandomGenerator.new(shift_month: @shift_month).call
 
     ShiftDayAssignment.transaction do
-      @shift_month.shift_day_assignments.draft.delete_all
+      @shift_month.shift_day_assignments.draft.delete_all # (多重タブの競合対策としてもう一度削除)
 
       draft_hash.each do |date_str, kinds_hash|
         date = Date.iso8601(date_str)
