@@ -61,10 +61,34 @@ module ShiftDrafts
         alerts[date] = list
       end
 
+      append_monthly_holiday_shortage_alerts!(alerts)
       alerts
     end
 
     private
+
+    def append_monthly_holiday_shortage_alerts!(alerts)
+      required = @shift_month.holiday_days.to_i
+      return if required <= 0
+
+      free_staffs = @staff_by_id.values.select { |s| s.workday_constraint.to_s == "free" }
+      return if free_staffs.empty?
+
+      total_days = @dates.length
+      worked_days = Hash.new(0)
+
+      @dates.each do |date|
+        dkey = date.iso8601
+        kinds_hash = @draft[dkey] || {}
+
+        assigned_ids = kinds_hash.values
+                                 .flat_map { |rows| Array(rows).map { |row| extract_staff_id(row) } }
+                                 .compact
+                                 .uniq
+
+        assigned_ids.each { |sid| worked_days[sid] += 1 }
+      end
+    end
 
     def enabled?(kind_sym, date)
       map = @enabled_by_date[kind_sym]
