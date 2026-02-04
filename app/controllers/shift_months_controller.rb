@@ -18,6 +18,11 @@ class ShiftMonthsController < ApplicationController
 
     preload_staffs_for
 
+    @unassigned_display_staffs_by_date =
+      ShiftDrafts::UnassignedDisplayStaffsBuilder
+        .new(dates: @dates, staff_by_id: @staff_by_id, assignments_hash: @saved)
+        .call
+
     @required_skill_by_date = build_required_skill_by_date
 
     @stats_rows = ShiftDrafts::StatsBuilder.new(
@@ -282,11 +287,13 @@ class ShiftMonthsController < ApplicationController
   end
 
   def generate_draft
-    draft_hash = ShiftDrafts::RandomGenerator.new(shift_month: @shift_month).call
     token = SecureRandom.hex(8)
+    @shift_month.shift_day_assignments.draft.delete_all
+
+    draft_hash = ShiftDrafts::RandomGenerator.new(shift_month: @shift_month).call
 
     ShiftDayAssignment.transaction do
-      @shift_month.shift_day_assignments.draft.delete_all
+      @shift_month.shift_day_assignments.draft.delete_all # (多重タブの競合対策としてもう一度削除)
 
       draft_hash.each do |date_str, kinds_hash|
         date = Date.iso8601(date_str)
@@ -327,6 +334,11 @@ class ShiftMonthsController < ApplicationController
     @draft = build_assignments_hash(scope.select(:id, :date, :shift_kind, :staff_id, :slot))
 
     preload_staffs_for # staffのデータ
+
+    @unassigned_display_staffs_by_date =
+      ShiftDrafts::UnassignedDisplayStaffsBuilder
+        .new(dates: @dates, staff_by_id: @staff_by_id, assignments_hash: @draft)
+        .call
 
     @required_skill_by_date = build_required_skill_by_date
 
