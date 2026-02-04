@@ -42,25 +42,56 @@
 <% else %>
   <div class="day-slots">
     <div class="slot slot-day">
-      <%# 日勤列：3段 %>
+    <% if row_key == :care && in_month %>
+      <%# 介護だけ：固定順名簿で「勤務 or 休み」を表示 %>
+      <% care_staffs =
+           staff_by_id.values
+                      .select { |s| row_key_for(s) == :care }
+                      .sort_by { |s| [s.last_name_kana.to_s, s.first_name_kana.to_s, s.id.to_i] } %>
+
+      <% assigned_kind_by_id = {} %>
+      <% { day: day_rows, early: early_rows, late: late_rows }.each do |kind_sym, rows| %>
+        <% Array(rows).each do |r| %>
+          <% sid = (r["staff_id"] || r[:staff_id]).to_i %>
+          <% assigned_kind_by_id[sid] = kind_sym if sid > 0 %>
+        <% end %>
+      <% end %>
+
+      <% care_staffs.each do |s| %>
+        <% kind = assigned_kind_by_id[s.id] %>
+        <% if kind == :early %>
+          <div class="small shift-line"><%= s.last_name %><span class="shift-time">730-1630</span></div>
+        <% elsif kind == :late %>
+          <div class="small shift-line"><%= s.last_name %><span class="shift-time">11-20</span></div>
+        <% elsif kind == :day %>
+          <div class="small"><%= s.last_name %></div>
+        <% else %>
+          <div class="small text-danger"><%= s.last_name %>(休)</div>
+        <% end %>
+      <% end %>
+    <% else %>
+      <%# 介護以外：現行の表示（割当のみ） %>
       <% day_rows.each do |row| %>
-        <% staff = staff_by_id[row["staff_id"]] %>
+        <% sid = (row["staff_id"] || row[:staff_id]).to_i %>
+        <% staff = staff_by_id[sid] %>
         <% next if staff.nil? %>
         <% if row_key_for(staff) == row_key %>
           <div class="small"><%= staff.last_name %></div>
         <% end %>
       <% end %>
 
+      <%# 未割当(休み)表示：その月だけ %>
       <% if in_month %>
-        <%# 未割当(休み)表示 %>
-        <% unassigned_staffs = (defined?(unassigned_display_staffs_by_date) && unassigned_display_staffs_by_date) ? (unassigned_display_staffs_by_date[date] || []) : [] %>
+        <% unassigned_staffs = (unassigned_display_staffs_by_date && unassigned_display_staffs_by_date[date]) || [] %>
         <% unassigned_staffs.each do |staff| %>
           <% next if staff.nil? %>
           <% next unless row_key_for(staff) == row_key %>
           <div class="small text-danger"><%= staff.last_name %>(休)</div>
         <% end %>
       <% end %>
+    <% end %>
 
+    <% if !(row_key == :care && in_month) %>
       <% early_rows.each do |row| %>
         <% staff = staff_by_id[row["staff_id"]] %>
         <% next if staff.nil? %>
@@ -80,6 +111,7 @@
           </div>
         <% end %>
       <% end %>
+    <% end %>
     </div>
 
     <div class="slot slot-night">

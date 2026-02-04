@@ -20,7 +20,10 @@ module ShiftDrafts
           }.compact.map(&:to_i).uniq
 
         unassigned_ids = display_ids - assigned_ids
-        unassigned_ids.map { |sid| @staff_by_id[sid] }.compact
+        unassigned_ids
+          .map { |sid| @staff_by_id[sid] }
+          .compact
+          .select { |staff| show_unassigned_label_on_date?(staff, date) }
       end
     end
 
@@ -37,7 +40,33 @@ module ShiftDrafts
       return true if occ_name.include?("ケアマネ")
 
       if occ_name.include?("看護")
-        return staff.last_name.to_s == "若林"
+        return true
+      end
+
+      false
+    end
+
+    def show_unassigned_label_on_date?(staff, date)
+      return false if staff.nil?
+
+      occ_name = staff.occupation&.name.to_s
+
+      return true if occ_name.include?("介護")
+      return true if occ_name.include?("事務")
+      return true if occ_name.include?("管理栄養士")
+      return true if occ_name.include?("ケアマネ")
+
+      if occ_name.include?("看護")
+        constraint = staff.workday_constraint.to_s
+        return true if constraint == "free"
+
+        if constraint == "fixed"
+          wday = ShiftMonth.ui_wday(date)
+          workable_wdays = staff.staff_workable_wdays.map(&:wday)
+          return workable_wdays.include?(wday)
+        end
+
+        return false
       end
 
       false
