@@ -18,6 +18,11 @@ class ShiftMonthsController < ApplicationController
 
     preload_staffs_for
 
+    @unassigned_display_staffs_by_date =
+      ShiftDrafts::UnassignedDisplayStaffsBuilder
+        .new(dates: @dates, staff_by_id: @staff_by_id, assignments_hash: @saved)
+        .call
+
     @required_skill_by_date = build_required_skill_by_date
 
     @stats_rows = ShiftDrafts::StatsBuilder.new(
@@ -329,6 +334,11 @@ class ShiftMonthsController < ApplicationController
     @draft = build_assignments_hash(scope.select(:id, :date, :shift_kind, :staff_id, :slot))
 
     preload_staffs_for # staffのデータ
+
+    @unassigned_display_staffs_by_date =
+      ShiftDrafts::UnassignedDisplayStaffsBuilder
+        .new(dates: @dates, staff_by_id: @staff_by_id, assignments_hash: @draft)
+        .call
 
     @required_skill_by_date = build_required_skill_by_date
 

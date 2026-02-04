@@ -2,7 +2,7 @@
   date:, in_month:, occupation:, row_key:, shift_month:,
   day_enabled_by_date:, early_enabled_by_date:, late_enabled_by_date:,
   required_by_date:, required_skill_by_date:, alerts_by_date:,
-  draft:, staff_by_id:
+  draft:, staff_by_id:, unassigned_display_staffs_by_date:
 %>
 
 <% day_hash = draft[date.iso8601] || {} %>
@@ -48,6 +48,16 @@
         <% next if staff.nil? %>
         <% if row_key_for(staff) == row_key %>
           <div class="small"><%= staff.last_name %></div>
+        <% end %>
+      <% end %>
+
+      <% if in_month %>
+        <%# 未割当(休み)表示 %>
+        <% unassigned_staffs = (defined?(unassigned_display_staffs_by_date) && unassigned_display_staffs_by_date) ? (unassigned_display_staffs_by_date[date] || []) : [] %>
+        <% unassigned_staffs.each do |staff| %>
+          <% next if staff.nil? %>
+          <% next unless row_key_for(staff) == row_key %>
+          <div class="small text-danger"><%= staff.last_name %>(休)</div>
         <% end %>
       <% end %>
 
