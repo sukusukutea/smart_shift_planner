@@ -492,7 +492,7 @@ class ShiftMonthsController < ApplicationController
 
   # 表示・集計用に全職員を preload（draft / confirmed 共通）
   def preload_staffs_for # staff_id→Staffをまとめて引く（N+1防止）staff.idをキーにした、ActiveRecordオブジェクトのhashを作っている。
-    @staff_by_id = current_user.staffs.includes(:occupation).index_by(&:id)
+    @staff_by_id = current_user.staffs.includes(:occupation, :staff_workable_wdays).index_by(&:id)
   end
 
   def prepare_daily_tab_vars
