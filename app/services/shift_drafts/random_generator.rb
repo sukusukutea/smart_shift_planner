@@ -8,6 +8,9 @@ module ShiftDrafts
     def call
       month_begin = Date.new(@shift_month.year, @shift_month.month, 1)
       month_end   = month_begin.end_of_month
+      @month_end  = month_end
+      @dates = (month_begin..month_end).to_a
+      @staff_by_id = @active_scope.includes(:staff_workable_wdays, :occupation).index_by(&:id)
 
       @worked_days_by_staff, @last_worked_by_staff = build_worked_indexes(
         month_begin: month_begin,
@@ -20,6 +23,8 @@ module ShiftDrafts
         designations_by_date[d.date][d.shift_kind.to_s] = d.staff_id
       end # 返り値 designations_by_date[date]["day"] => staff_id　みたいに引ける形
 
+      @designations_by_date = designations_by_date
+
       holiday_ids_by_date =
         @shift_month.staff_holiday_requests
                     .where(date: month_begin..month_end)
@@ -27,6 +32,15 @@ module ShiftDrafts
                     .transform_values { |rows| rows.map(&:staff_id) }
 
       draft = {}
+      @timeline =
+        ShiftDrafts::AssignmentTimeline.new(
+          dates: (month_begin..month_end).to_a,
+          staff_by_id: @staff_by_id,
+          assignments_hash: draft
+        )
+
+      # staff_id => Ser[Date, Date, ...]この日の割当を禁止する
+      @forced_off_dates_by_staff_id = Hash.new { |h, k| h[k] = Set.new }
 
       occ_name_by_staff_id = @active_scope
                              .joins(:occupation)
@@ -34,6 +48,9 @@ module ShiftDrafts
                              .to_h
  
       (month_begin..month_end).each do |date|
+        # 前日までのdraftをtimelineに反映（連続勤務判定のため）
+        @timeline.call
+
         enabled_map = @shift_month.enabled_map_for(date) # その日の勤務のON/OFFを取得 返り値例{ day: true, early: true, late: false, night: true }
         skill_counts = @shift_month.required_skill_counts_for(date)
         
@@ -43,6 +60,8 @@ module ShiftDrafts
         assigned_today = Set.new  # SetはRuby標準ライブラリのSetクラス「同じ値を二度入れられない」。同じidが重複できない
         day_hash = {} # その日の最終結果
 
+        forced_off_ids = forced_off_staff_ids_on(date)
+
         ShiftMonth::SHIFT_KINDS.each do |kind|
           sid = designations_by_date.dig(date, kind.to_s)
           next if sid.blank?
@@ -51,9 +70,11 @@ module ShiftDrafts
           (day_hash[kind] ||= []) << { slot: (day_hash[kind]&.size || 0), staff_id: sid }
           assigned_today.add(sid)
           track_work!(sid, date: date)
+          after_assigned!(sid, date: date, kind: kind, month_end: @month_end)
         end
 
-        ShiftMonth::SHIFT_KINDS.each do |kind|
+        fill_order = [:early, :late, :day, :night]
+        fill_order.each do |kind|
           next unless enabled_map[kind] # OFFなら割当しない
           next if kind != :day && day_hash[kind].present?
 
@@ -66,7 +87,7 @@ module ShiftDrafts
               .where(workday_constraint: :fixed)
               .left_joins(:staff_workable_wdays)
               .where(staff_workable_wdays: { wday: ShiftMonth.ui_wday(date) })
-              .where.not(id: holiday_ids)
+              .where.not(id: holiday_ids + forced_off_ids)
               .where.not(id: assigned_today.to_a)
               .includes(:occupation)
 
@@ -105,6 +126,7 @@ module ShiftDrafts
               day_rows << { slot: slot, staff_id: staff.id }
               assigned_today.add(staff.id)
               track_work!(staff.id, date: date)
+              after_assigned!(staff.id, date: date, kind: :day, month_end: @month_end)
               slot += 1
             end
 
@@ -139,12 +161,14 @@ module ShiftDrafts
             next
           end
 
-          staff = pick_staff_for(kind, exclude_ids: assigned_today.to_a + holiday_ids, date: date)    # 返り値：今日すでに使ったIDがいればStaffオブジェクト、いなければnil
+          # 返り値：今日すでに使ったIDがいればStaffオブジェクト、いなければnil
+          staff = pick_staff_for(kind, exclude_ids: assigned_today.to_a + holiday_ids + forced_off_ids, date: date)
           next if staff.nil? # 候補0なら空欄
 
           (day_hash[kind] ||= []) << { slot: 0, staff_id: staff.id }
           assigned_today.add(staff.id)
           track_work!(staff.id, date: date)
+          after_assigned!(staff.id, date: date, kind: kind, month_end: @month_end)
         end
 
         draft[date.iso8601] = day_hash # １日のドラフトを格納
@@ -169,7 +193,35 @@ module ShiftDrafts
            )
     end
 
-    def pick_staff_for(kind, exclude_ids:, role: nil, date: nil, skill: nil) # ここでのexclude_ids：すでに選ばれた職員のID配列（同じ人を重複させないため）
+    # そのstaffがその日に「日勤系」で手動指定されているか？
+    def designated_dayish?(staff_id, date)
+      h = @designations_by_date&.[](date)
+      return false if h.blank?
+
+      sid = staff_id.to_i
+      %w[day early late].any? { |k| h[k].to_i == sid }
+    end
+
+    def consecutive_designation_days_after(staff_id, date)
+      return 0 if date.nil?
+      return 0 if @dates.blank? || @designations_by_date.blank?
+
+      idx = @dates.index(date)
+      return 0 unless idx
+
+      count = 0
+      @dates[(idx + 1)..].each do |d|
+        if designated_dayish?(staff_id, d)
+          count += 1
+        else
+          break
+        end
+      end
+      count
+    end
+
+    # ここでのexclude_ids：すでに選ばれた職員のID配列（同じ人を重複させないため）
+    def pick_staff_for(kind, exclude_ids:, role: nil, date: nil, skill: nil) 
       scope = @active_scope
 
       scope =                          # case kindで条件を足している。kindに応じて対応できる職員だけに絞る
@@ -212,7 +264,26 @@ module ShiftDrafts
 
       # 候補IDを取ってRuby側で「直近で働いていない順」→「勤務日数が少ない順」に並べて選ぶ
       candidate_ids = scope.pluck(:id)
-      pick_by_priority(candidate_ids, date: date)
+
+      # 連続勤務5日→２休を強制（Timelineで判定）
+      if date.present? && [:day, :early, :late].include?(kind)
+        candidate_ids =
+          candidate_ids.reject do |sid|
+            before = @timeline.consecutive_day_count_before(sid, date)
+            after  = consecutive_designation_days_after(sid, date)
+            (before + 1 + after) > 5
+          end
+      end
+
+      priority_mode =
+        case kind
+        when :early, :late
+          :worked_only # 勤務日数を確認。勤務日数が少ない人を優先させるため。
+        else
+          :full # 最近働いていない人＋勤務日数を確認 優先順位①最近働いていない人②勤務日数が少ない人
+        end
+
+      pick_by_priority(candidate_ids, date: date, priority_mode: priority_mode)
     end
 
     # 日勤スキルを未選定から追加で埋める。候補をDBから一括取得してshuffleし、Ruby側でpopしていく
@@ -229,7 +300,7 @@ module ShiftDrafts
       need_drive = [skill_counts[:drive].to_i - drive_have, 0].max
       need_cook  = [skill_counts[:cook].to_i  - cook_have,  0].max
 
-      base_exclude = assigned_today.to_a + holiday_ids
+      base_exclude = assigned_today.to_a + holiday_ids + forced_off_staff_ids_on(date)
 
       drive_ids = day_skill_candidate_ids(date: date, exclude_ids: base_exclude, skill: :drive)
       while need_drive > 0 && drive_ids.any?
@@ -237,11 +308,12 @@ module ShiftDrafts
         day_rows << { slot: slot, staff_id: sid }
         assigned_today.add(sid)
         track_work!(sid, date: date)
+        after_assigned!(sid, date: date, kind: :day, month_end: @month_end)
         slot += 1
         need_drive -= 1
       end
 
-      base_exclude = assigned_today.to_a + holiday_ids
+      base_exclude = assigned_today.to_a + holiday_ids + forced_off_staff_ids_on(date)
 
       cook_ids = day_skill_candidate_ids(date: date, exclude_ids: base_exclude, skill: :cook)
       while need_cook > 0 && cook_ids.any?
@@ -249,6 +321,7 @@ module ShiftDrafts
         day_rows << { slot: slot, staff_id: sid }
         assigned_today.add(sid)
         track_work!(sid, date: date)
+        after_assigned!(sid, date: date, kind: :day, month_end: @month_end)
         slot += 1
         need_cook -= 1
       end
@@ -275,7 +348,7 @@ module ShiftDrafts
     end
 
     def fill_day_roles!(day_rows:, date:, need_nurse:, need_care:, assigned_today:, holiday_ids:, slot:)
-      base_exclude = assigned_today.to_a + holiday_ids
+      base_exclude = assigned_today.to_a + holiday_ids + forced_off_staff_ids_on(date)
 
       nurse_ids = day_role_candidate_ids(date: date, exclude_ids: base_exclude, role: :nurse)
       while need_nurse > 0 && nurse_ids.any?
@@ -283,11 +356,12 @@ module ShiftDrafts
         day_rows << { slot: slot, staff_id: sid }
         assigned_today.add(sid)
         track_work!(sid, date: date)
+        after_assigned!(sid, date: date, kind: :day, month_end: @month_end)
         slot += 1
         need_nurse -= 1
       end
       
-      base_exclude = assigned_today.to_a + holiday_ids
+      base_exclude = assigned_today.to_a + holiday_ids + forced_off_staff_ids_on(date)
 
       care_ids = day_role_candidate_ids(date: date, exclude_ids: base_exclude, role: :care)
       while need_care > 0 && care_ids.any?
@@ -295,6 +369,7 @@ module ShiftDrafts
         day_rows << { slot: slot, staff_id: sid }
         assigned_today.add(sid)
         track_work!(sid, date: date)
+        after_assigned!(sid, date: date, kind: :day, month_end: @month_end)
         slot += 1
         need_care -= 1
       end
@@ -329,22 +404,32 @@ module ShiftDrafts
       [worked, last]
     end
 
-    def pick_by_priority(candidate_ids, date:)
+    def pick_by_priority(candidate_ids, date:, priority_mode: :full)
       return nil if candidate_ids.blank?
 
-      ids = sort_ids_by_priority(candidate_ids, date: date)
+      ids = sort_ids_by_priority(candidate_ids, date: date, priority_mode: priority_mode)
 
       @active_scope.find_by(id: ids.last)
     end
 
-    def sort_ids_by_priority(ids, date:) # 「直近で働いていない順」→「勤務日数が少ない順」に並べ変える（同点はランダムで揺らす）
+    def sort_ids_by_priority(ids, date:, priority_mode: :full)
       Array(ids).sort_by do |sid|
-        days_since = days_since_last_work(sid, date: date) #大きいほど優先(=最近働いてない)
-        [
-          days_since,                        # 直近抑制 小さい→大きい（末尾が最近働いていない人）
-          -@worked_days_by_staff[sid].to_i,    # 次に勤務日数が少ない人（末尾が「勤務日数少ない人」）
-          rand                                # 同点揺らぎ
-        ]
+        worked = @worked_days_by_staff[sid].to_i
+
+        case priority_mode
+        when :worked_only # 純粋に勤務日数だけチェック
+          [
+            -worked, # 末尾が「勤務日数少ない人」にしたいので -worked(小→大で末尾が小さくなる)
+            rand
+          ]
+        else # :full
+          days_since = days_since_last_work(sid, date: date)
+          [
+            days_since,
+            -worked,
+            rand                                # 同点揺らぎ
+          ]
+        end
       end
     end
 
@@ -361,6 +446,31 @@ module ShiftDrafts
       @worked_days_by_staff[sid] = @worked_days_by_staff[sid].to_i + 1
       prev = @last_worked_by_staff[sid]
       @last_worked_by_staff[sid] = prev.nil? ? date : [prev, date].max
+    end
+
+    def forced_off_staff_ids_on(date)
+      @forced_off_dates_by_staff_id
+        .select { |_sid, set| set.include?(date) }
+        .keys
+    end
+
+    def after_assigned!(staff_id, date:, kind:, month_end:)
+      return if staff_id.blank? || date.nil?
+      return unless [:day, :early, :late].include?(kind.to_sym)
+
+      #今日割当する直前までの連続日勤系数
+      before = @timeline.consecutive_day_count_before(staff_id.to_i, date)
+
+      if before >= 4
+        lock_two_off_days!(staff_id.to_i, date: date, month_end: month_end)
+      end
+    end
+
+    def lock_two_off_days!(staff_id, date:, month_end:)
+      d1 = date + 1
+      d2 = date + 2
+      @forced_off_dates_by_staff_id[staff_id] << d1 if d1 <= month_end
+      @forced_off_dates_by_staff_id[staff_id] << d2 if d2 <= month_end
     end
   end
 end

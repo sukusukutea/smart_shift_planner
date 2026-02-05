@@ -61,11 +61,99 @@ module ShiftDrafts
         alerts[date] = list
       end
 
+      append_consecutive_work_alerts!(alerts)
       append_monthly_holiday_shortage_alerts!(alerts)
       alerts
     end
 
     private
+
+    # 連勤系アラート
+    # 6連勤が入った日にアラート/５連勤後の２連休に勤務指定が入って休みにならなかった場合のアラート
+    def append_consecutive_work_alerts!(alerts)
+      return if @dates.blank?
+
+      # designation を引ける形にする
+      designations = @shift_month.shift_day_designations.where(date: @dates.first..@dates.last)
+      designations_by_date = Hash.new { |h, k| h[k] = {} }
+      designations.each do |d|
+        designations_by_date[d.date][d.shift_kind.to_s] = d.staff_id
+      end
+
+      staff_ids = @staff_by_id.keys.map(&:to_i)
+
+      staff_ids.each do |sid|
+        streak = 0 # streak : 連続勤務のカウント
+
+        @dates.each_with_index do |date, idx|
+          if worked_dayish?(sid, date)
+            streak += 1
+
+            # 6日目以降に表示
+            if streak == 6
+              (alerts[date] ||= []) << "#{staff_label(sid)}5連勤超"
+            end
+
+            # 5連勤に到達した日に、翌日/翌々日の「２連休が成立しているか」チェック
+            if streak == 5
+              [1, 2].each do |offset|
+                d = @dates[idx + offset]
+                break if d.nil?
+
+                next unless worked_any_kind?(sid, d) # 本来休みの日に何か勤務が入ってしまった
+
+
+
+                msg = "2連休未成立"
+                if designated_any_kind?(designations_by_date, sid, d)
+                  msg = "2連休未成立(指定優先)"
+                end
+
+                (alerts[d] ||= []) << "#{staff_label(sid)}#{msg}"
+              end
+            end
+          else
+            streak = 0
+          end
+        end
+      end
+    end
+
+    # そのstaffがその日に「日勤系」に入っているか？
+    def worked_dayish?(staff_id, date)
+      dkey = date.iso8601
+      kinds_hash = @draft[dkey] || {}
+
+      %w[day early late].any? do |kind|
+        rows = kinds_hash[kind] || kinds_hash[kind.to_sym]
+        Array(rows).any? { |row| extract_staff_id(row).to_i == staff_id.to_i }
+      end
+    end
+
+    # そのstaffがその日に何か勤務が入っているか？
+    def worked_any_kind?(staff_id, date)
+      dkey = date.iso8601
+      kinds_hash = @draft[dkey] || {}
+
+      %w[day early late night].any? do |kind|
+        rows = kinds_hash[kind] || kinds_hash[kind.to_sym]
+        Array(rows).any? { |row| extract_staff_id(row).to_i == staff_id.to_i }
+      end
+    end
+
+    # そのstaffがその日に勤務指定されているか？
+    def designated_any_kind?(designations_by_date, staff_id, date)
+      h = designations_by_date[date]
+      return false if h.blank?
+      sid = staff_id.to_i
+      %w[day early late night].any? { |k| h[k].to_i == sid }
+    end
+
+    def staff_label(staff_id)
+      s = @staff_by_id[staff_id.to_i]
+      return "職員#{staff_id}" if s.nil?
+      s.last_name.to_s
+    end
 
     def append_monthly_holiday_shortage_alerts!(alerts)
       required = @shift_month.holiday_days.to_i
