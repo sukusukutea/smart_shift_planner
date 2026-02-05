@@ -14,10 +14,9 @@
     </thead>
     <tbody>
       <% sorted_rows =
-          stats_rows.sort_by do |row|
-            staff = row[:staff]
-            staff.workday_constraint == "free" ? 0 : 1
-          end
+          stats_rows
+            .select { |row| ( s = row[:staff]) && s.active? } 
+            .sort_by { |row| row[:staff].workday_constraint == "free" ? 0 : 1 }
       %>
       <% sorted_rows.each do |row| %>
         <tr class="<%= row[:staff].workday_constraint == 'fixed' ? 'fixed-staff-row' : '' %>">
