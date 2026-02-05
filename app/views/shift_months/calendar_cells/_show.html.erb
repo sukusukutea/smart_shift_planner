@@ -35,7 +35,19 @@
 <% elsif row_key == :alert %>
   <% msgs = Array(alerts_by_date[date]) %>
   <% if msgs.any? %>
-    <div class="text-danger small"><%= msgs.join(" / ") %></div>
+    <div class="d-flex flex-wrap gap-1 small">
+      <% msgs.each do |msg| %>
+        <% badge_class =
+            if msg.include?("6連勤") || msg.include?("5連勤超")
+              "text-bg-danger"
+            elsif msg.include?("2連休未成立")
+              "text-bg-warning"
+            else
+              "text-bg-secondary"
+            end %>
+        <span class="badge rounded-pill <%= badge_class %>"><%= msg %></span>
+      <% end %>
+    </div>
   <% else %>
     <div class="text-muted small">-</div>
   <% end %>

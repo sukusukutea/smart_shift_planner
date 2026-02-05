@@ -73,7 +73,7 @@
             <div class="flex-grow-1">
               <%= select_tag :staff_id,
                   options_for_select(
-                    @all_staffs.map { |staff| ["#{staff.last_name} #{staff.first_name}", staff.id] },
+                    @all_staffs.select(&:active?).map { |staff| ["#{staff.last_name} #{staff.first_name}", staff.id] },
                     @selected_staff&.id
                   ),
                   include_blank: "職員を選択",
@@ -300,7 +300,7 @@
           <div class="flex-grow-1">
             <%= select_tag :designation_staff_id,
                 options_for_select(
-                  @all_staffs.map { |s| ["#{s.last_name} #{s.first_name}", s.id] },
+                  @all_staffs.select(&:active?).map { |s| ["#{s.last_name} #{s.first_name}", s.id] },
                   @selected_designation_staff&.id
                 ),
                 include_blank: "職員を選択",

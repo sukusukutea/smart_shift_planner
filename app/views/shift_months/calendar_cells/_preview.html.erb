@@ -58,7 +58,7 @@
       <%# 介護だけ：固定順名簿で「勤務 or 休み」を表示 %>
       <% care_staffs =
            staff_by_id.values
-                      .select { |s| row_key_for(s) == :care }
+                      .select { |s| s&.active? && row_key_for(s) == :care }
                       .sort_by do |s|
                         [
                           s.workday_constraint == "free" ? 0 : 1,
@@ -93,7 +93,7 @@
       <% day_rows.each do |row| %>
         <% sid = (row["staff_id"] || row[:staff_id]).to_i %>
         <% staff = staff_by_id[sid] %>
-        <% next if staff.nil? %>
+        <% next if staff.nil? || !staff.active? %>
         <% if row_key_for(staff) == row_key %>
           <div class="small"><%= staff.last_name %></div>
         <% end %>
@@ -103,7 +103,7 @@
       <% if in_month %>
         <% unassigned_staffs = (unassigned_display_staffs_by_date && unassigned_display_staffs_by_date[date]) || [] %>
         <% unassigned_staffs.each do |staff| %>
-          <% next if staff.nil? %>
+          <% next if staff.nil? || !staff.active? %>
           <% next unless row_key_for(staff) == row_key %>
           <div class="small text-danger"><%= staff.last_name %>(休)</div>
         <% end %>
