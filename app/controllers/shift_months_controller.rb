@@ -197,17 +197,38 @@ class ShiftMonthsController < ApplicationController
   end
 
   def update_designation
-    date = Date.iso8601(params.require(:date))
-    staff_id = params.dig(:designation, :staff_id)
-    kind = params.dig(:designation, :shift_kind)
+    force = params[:force].to_s == "1"
+    sid   = params.dig(:designation, :staff_id).to_i
+    kind  = params.dig(:designation, :shift_kind).to_s
+    date  = Date.iso8601(params[:date])
 
-    if staff_id.blank? || kind.blank?
-      redirect_to settings_shift_month_path(@shift_month, tab: "daily", date: date.iso8601), alert: "職員と勤務形態を選択してください"
+    if sid == 0 || kind.blank?
+      redirect_to settings_shift_month_path(@shift_month, tab: "daily", date: date.iso8601),
+                  alert: "職員と勤務形態を選択してください"
       return
     end
 
+    holiday = @shift_month.staff_holiday_requests.find_by(date: date, staff_id: sid)
+    if !force && holiday.present?
+      flash[:conflict] = {
+        kind: "designation_over_holiday",
+        staff_id: sid,
+        date: date.iso8601,
+        shift_kind: kind
+      }
+      redirect_to settings_shift_month_path(
+        @shift_month,
+        tab: "daily",
+        date: date.iso8601,
+        designation_staff_id: sid
+      )
+      return
+    end
+
+    holiday&.destroy
+
     ShiftDayDesignation.transaction do
-      record = @shift_month.shift_day_designations.find_or_initialize_by(date: date, staff_id: staff_id.to_i)
+      record = @shift_month.shift_day_designations.find_or_initialize_by(date: date, staff_id: sid)
       record.shift_kind = kind
       record.save!
     end
@@ -216,7 +237,8 @@ class ShiftMonthsController < ApplicationController
   rescue ArgumentError
     redirect_to settings_shift_month_path(@shift_month, tab: "daily"), alert: "日付が不正です"
   rescue ActiveRecord::RecordInvalid => e
-    redirect_to settings_shift_month_path(@shift_month, tab: "daily" , date: params[:date]), alert: "保存に失敗しました: #{e.record.errors.full_messages.join(", ")}"
+    redirect_to settings_shift_month_path(@shift_month, tab: "daily" , date: params[:date]),
+                alert: "保存に失敗しました: #{e.record.errors.full_messages.join(", ")}"
   end
 
   def remove_designation
@@ -228,9 +250,24 @@ class ShiftMonthsController < ApplicationController
   end
 
   def add_staff_holiday
-    staff = current_user.staffs.find(params[:staff_id])
-    date = Date.iso8601(params[:date])
+    force = params[:force].to_s == "1"
+    sid   = params[:staff_id].to_i
+    date  = Date.iso8601(params[:date])
 
+    conflicts = @shift_month.shift_day_designations.where(date: date, staff_id: sid)
+    if !force && conflicts.exists?
+      flash[:conflict] = {
+        kind: "holiday_over_designation",
+        staff_id: sid,
+        date: date.iso8601
+      }
+      redirect_to settings_shift_month_path(@shift_month, tab: "holiday", staff_id: sid)
+      return
+    end
+
+    conflicts.delete_all
+
+    staff = current_user.staffs.find(sid)
     @shift_month.staff_holiday_requests.find_or_create_by!(staff: staff, date: date)
 
     redirect_to settings_shift_month_path(@shift_month, tab: "holiday", staff_id: staff.id), notice: "休日希望を追加しました"
