@@ -162,7 +162,14 @@ module ShiftDrafts
           end
 
           # 返り値：今日すでに使ったIDがいればStaffオブジェクト、いなければnil
-          staff = pick_staff_for(kind, exclude_ids: assigned_today.to_a + holiday_ids + forced_off_ids, date: date)
+          exclude_for_normal = assigned_today.to_a + holiday_ids + forced_off_ids
+          staff = pick_staff_for(kind, exclude_ids: exclude_for_normal, date: date)
+
+          # 夜勤候補が0なら「夜勤2連続」を例外で許可
+          if staff.nil? && kind == :night
+            staff = pick_staff_for_double_night(date: date, exclude_ids: assigned_today.to_a + holiday_ids)
+          end
+
           next if staff.nil? # 候補0なら空欄
 
           (day_hash[kind] ||= []) << { slot: 0, staff_id: staff.id }
@@ -456,7 +463,19 @@ module ShiftDrafts
 
     def after_assigned!(staff_id, date:, kind:, month_end:)
       return if staff_id.blank? || date.nil?
-      return unless [:day, :early, :late].include?(kind.to_sym)
+      kind = kind.to_sym
+
+      # 夜勤が入ったら明け＋休みを強制OFFにする
+      if kind == :night
+        if night_assigned_on?(staff_id.to_i, date - 2)
+          lock_after_double_night!(staff_id.to_i, date: date, month_end: month_end) # 明け + 2休
+        else
+          lock_night_flow!(staff_id.to_i, date: date, month_end: month_end) # 明け + 休
+        end
+        return
+      end
+
+      return unless [:day, :early, :late].include?(kind)
 
       #今日割当する直前までの連続日勤系数
       before = @timeline.consecutive_day_count_before(staff_id.to_i, date)
@@ -471,6 +490,50 @@ module ShiftDrafts
       d2 = date + 2
       @forced_off_dates_by_staff_id[staff_id] << d1 if d1 <= month_end
       @forced_off_dates_by_staff_id[staff_id] << d2 if d2 <= month_end
+    end
+
+    def lock_night_flow!(staff_id, date:, month_end:)
+      # 1日目夜勤入り、2日目明け、3日目休
+      d1 = date + 1
+      d2 = date + 2
+      @forced_off_dates_by_staff_id[staff_id] << d1 if d1 <= month_end
+      @forced_off_dates_by_staff_id[staff_id] << d2 if d2 <= month_end
+    end
+
+    # 夜勤候補0の時に2連続夜勤をピックアップ。条件：2日前に夜勤には一致える。4日前に夜勤に入っている場合はNG。
+    def pick_staff_for_double_night(date:, exclude_ids:)
+      return nil if date.nil?
+
+      base_ids =
+        @active_scope
+          .where(can_night: true)
+          .pluck(:id)
+          .reject { |sid| exclude_ids.include?(sid.to_i) }
+          .select { |sid| night_assigned_on?(sid, date - 2) }
+          .reject { |sid| night_assigned_on?(sid, date - 4) }
+
+      return nil if base_ids.blank?
+
+      ids = sort_ids_by_priority(base_ids, date: date, priority_mode: :full)
+      @active_scope.find_by(id: ids.last)
+    end
+
+    def night_assigned_on?(staff_id, date)
+      return false if staff_id.blank? || date.nil?
+      return false if @timeline.nil?
+
+      daily = @timeline.instance_variable_get(:@timeline)&.[](staff_id.to_i)
+      return false if daily.blank?
+      daily[date] == :night
+    end
+
+    def lock_after_double_night!(staff_id, date:, month_end:)
+      d1 = date + 1
+      d2 = date + 2
+      d3 = date + 3
+      @forced_off_dates_by_staff_id[staff_id] << d1 if d1 <= month_end
+      @forced_off_dates_by_staff_id[staff_id] << d2 if d2 <= month_end
+      @forced_off_dates_by_staff_id[staff_id] << d3 if d3 <= month_end
     end
   end
 end

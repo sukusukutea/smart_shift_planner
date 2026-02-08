@@ -41,6 +41,15 @@ module ShiftDrafts
                .compact
                .uniq
 
+        prev_key = (Date.iso8601(dkey) - 1).iso8601
+        prev = @draft[prev_key] || {}
+        prev_night_first = Array(prev["night"] || []).first
+        night_off_id = extract_staff_id(prev_night_first)
+
+        assigned_ids << night_off_id if night_off_id.to_i > 0
+
+        assigned_ids = assigned_ids.compact.uniq
+
         assigned_ids.each do |sid|
           worked_days[sid] += 1
         end
@@ -59,7 +68,6 @@ module ShiftDrafts
         holiday_shortage = is_free && required_holidays > 0 && holiday_count.to_i < required_holidays
 
         {
-          staff: @staff_by_id[sid],
           staff: staff,
           day:   counts[sid][:day],
           early: counts[sid][:early],
