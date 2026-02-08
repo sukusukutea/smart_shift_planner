@@ -2,10 +2,10 @@ class ShiftMonthsController < ApplicationController
   before_action :authenticate_user!
   before_action :require_organization!
   before_action :set_shift_month, only: [:settings, :update_settings, :update_daily,
-                                        :generate_draft, :preview, :confirm_draft, :show, :add_staff_holiday,
+                                        :generate_draft, :preview, :edit_draft, :confirm_draft, :show, :add_staff_holiday,
                                         :remove_staff_holiday, :update_weekday_requirements, :update_designation,
-                                        :remove_designation]
-  before_action :build_calendar_vars, only: [:settings, :preview, :show]
+                                        :remove_designation, :update_draft_assignment]
+  before_action :build_calendar_vars, only: [:settings, :preview, :edit_draft, :show]
 
   def new
     @shift_month = current_user.shift_months.new
@@ -406,6 +406,123 @@ class ShiftMonthsController < ApplicationController
     ]
   end
 
+  def edit_draft
+    token = session[draft_token_session_key]
+    scope = @shift_month.shift_day_assignments.draft
+    scope = scope.where(draft_token: token) if token.present?
+
+    @draft = build_assignments_hash(scope.select(:id, :date, :shift_kind, :staff_id, :slot))
+
+    preload_staffs_for # staffのデータ
+
+    @unassigned_display_staffs_by_date =
+      ShiftDrafts::UnassignedDisplayStaffsBuilder
+        .new(dates: @dates, staff_by_id: @staff_by_id, assignments_hash: @draft)
+        .call
+
+    @required_skill_by_date = build_required_skill_by_date
+
+    @stats_rows = ShiftDrafts::StatsBuilder.new(
+      shift_month: @shift_month,
+      staff_by_id: @staff_by_id,
+      draft: @draft
+    ).call # stats = statistics(統計・集計)の略
+
+    alert_dates = (@month_begin..@month_end).to_a
+
+    @alerts_by_date = ShiftDrafts::AlertsBuilder.new(
+      dates: alert_dates,
+      draft: @draft,
+      staff_by_id: @staff_by_id,
+      required_by_date: @required_by_date,
+      enabled_by_date: {
+        day: @day_enabled_by_date,
+        early: @early_enabled_by_date,
+        late: @late_enabled_by_date,
+        night: @night_enabled_by_date
+      },
+      shift_month: @shift_month
+    ).call
+
+    @occupation_order_with_alert = @occupation_order + [
+      { key: :alert, label: "アラート", row_class: "occ-row-alert" }
+    ]
+  end
+
+  def update_draft_assignment
+    token = session[draft_token_session_key]
+
+    if token.blank?
+      render json: { ok: false, error: "draft token missing" }, status: :unprocessable_entity
+      return
+    end
+
+    scope = @shift_month.shift_day_assignments.draft.where(draft_token: token)
+
+    date  = Date.iso8601(params.require(:date))
+    staff_id = params.require(:staff_id).to_i
+    kind_str = params.require(:kind).to_s
+
+    if staff_id <= 0
+      render json: { ok: false, error: "staff_id is invalid" }, status: :unprocessable_entity
+      return
+    end
+
+    allowed = %w[day early late off]
+    unless allowed.include?(kind_str)
+      render json: { ok: false, error: "kind is invalid" }, status: :unprocessable_entity
+      return
+    end
+
+    editable_kinds = %i[day early late]
+
+    ShiftDayAssignment.transaction do
+      # 同一日・同一職員の「日勤側」の割当を消す
+      scope.where(date: date, staff_id: staff_id, shift_kind: editable_kinds).delete_all
+
+      if kind_str != "off"
+        kind = kind_str.to_sym
+
+        # slot衝突回避：その日の同kindで末尾slotに差し込む
+        max_slot = scope.where(date: date, shift_kind: kind).maximum(:slot)
+        slot = max_slot.to_i + 1
+
+        @shift_month.shift_day_assignments.create!(
+          date: date,
+          shift_kind: kind,
+          staff_id: staff_id,
+          slot: slot,
+          source: :draft,
+          draft_token: token
+        )
+      end
+    end
+
+    # --- 右サイドバー更新用に stats を作り直す ---
+    @draft = build_assignments_hash(scope.select(:id, :date, :shift_kind, :staff_id, :slot))
+    preload_staffs_for
+
+    @stats_rows = ShiftDrafts::StatsBuilder.new(
+      shift_month: @shift_month,
+      staff_by_id: @staff_by_id,
+      draft: @draft
+    ).call
+
+    stats_html = render_to_string(
+      partial: "shift_months/draft_sidebar",
+      formats: [:html],
+      locals: { stats_rows: @stats_rows, shift_month: @shift_month }
+    )
+
+    render json: { ok: true, stats_html: stats_html }
+  rescue ActionController::ParameterMissing
+    render json: { ok: false, error: "param missing" }, status: :unprocessable_entity
+  rescue ArgumentError
+    render json: { ok: false, error: "date is invalid" }, status: :unprocessable_entity
+  rescue ActiveRecord::RecordInvalid => e
+    render json: { ok: false, error: e.record.errors.full_messages.join(", ") }, status: :unprocessable_entity
+  end
+
   def confirm_draft
     token = session[draft_token_session_key]
 
@@ -428,7 +545,7 @@ class ShiftMonthsController < ApplicationController
     end
 
     session.delete(draft_token_session_key)
-    redirect_to settings_shift_month_path(@shift_month), notice: "シフトを保存しました"
+    redirect_to new_shift_month_path(@shift_month), notice: "シフトを保存しました"
   rescue ArgumentError
     redirect_to preview_shift_month_path(@shift_month), alert: "日付形式が不正です"
   rescue ActiveRecord::RecordInvalid => e
