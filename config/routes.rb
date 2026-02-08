@@ -29,7 +29,9 @@ Rails.application.routes.draw do
 
       post :generate_draft      # シフト案生成→previewへ
       get  :preview             # シフト案表示ページへ
+      get  :edit_draft
       post :confirm_draft       # 確定してDB保存
+      patch :update_draft_assignment
     end
   end
 

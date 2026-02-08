@@ -13,13 +13,7 @@
         </button>
 
         <%= link_to "戻る", settings_shift_month_path(@shift_month), class:"btn btn-sm btn-light border" %>
-        <%= link_to "手修正する", edit_draft_shift_month_path(@shift_month), class: "btn btn-sm btn-primary" %>
         <%= button_to "保存して終了", confirm_draft_shift_month_path(@shift_month), method: :post, class: "btn btn-sm btn-secondary" %>
-        <%= button_to "再生成",
-                      generate_draft_shift_month_path(@shift_month),
-                      method: :post,
-                      class: "btn btn-sm btn-success",
-                      data: { turbo_confirm: "現在のシフト案を破棄して、再生成します。よろしいですか？" } %>
       </div>
 
       <div class="shift-calendar"
@@ -38,7 +32,7 @@
                   day_effective_by_date: @day_effective_by_date,
                   required_by_date: @required_by_date,
                   required_skill_by_date: @required_skill_by_date,
-                  cell_partial: "shift_months/calendar_cells/preview",
+                  cell_partial: "shift_months/calendar_cells/edit_draft",
                   draft: @draft,
                   staff_by_id: @staff_by_id,
                   designations_by_date: @designations_by_date,
@@ -48,7 +42,9 @@
     </div>
 
     <div id="right-sidebar-col" class="col-md-2 col-lg-2 p-0 bg-light border-start">
-      <%= render "shift_months/draft_sidebar", stats_rows: @stats_rows, shift_month: @shift_month %>
+      <div id="draft-sidebar">
+        <%= render "shift_months/draft_sidebar", stats_rows: @stats_rows, shift_month: @shift_month %>
+      </div>
     </div>
   </div>
 </div>

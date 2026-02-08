@@ -276,3 +276,50 @@ body.sidebar-left-collapsed #sidebar-col {
   background-color: #f2f2f2;
   color: #666;
 }
+
+/* =========================================
+   edit_draft カレンダー内
+========================================= */
+/* 表示レイヤー：名前8pxのまま、時間だけ小さく */
+.shift-calendar-month .shift-edit-row{
+  position: relative;
+  width: 100%;
+}
+
+/* 表示（見た目） */
+.shift-calendar-month .shift-edit-display{
+  font-size: 9px;          /* ← 名前の基準 */
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;    /* クリックは下のselectへ通す */
+}
+
+.shift-calendar-month .shift-edit-display.is-off{
+  color: #dc3545;
+}
+
+.shift-calendar-month .shift-edit-display .shift-edit-time{
+  font-size: 0.85em;       /* ← 時間だけ小さく */
+  letter-spacing: -0.02em;
+  margin-left: 0;          /* 必要なら調整 */
+}
+
+/* selectは操作だけ担当：透明で上に被せる（矢印も枠も消したまま） */
+.shift-calendar-month .shift-edit-select{
+  position: absolute;
+  inset: 0;
+  opacity: 0;              /* 見えない */
+  cursor: pointer;
+}
+
+/* hover時：クリックできることを示す */
+.shift-calendar-month .shift-edit-row:hover .shift-edit-display{
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+/* カーソルをポインタに */
+.shift-calendar-month .shift-edit-row{
+  cursor: pointer;
+}
