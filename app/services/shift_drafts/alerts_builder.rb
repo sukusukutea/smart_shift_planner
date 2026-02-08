@@ -62,6 +62,7 @@ module ShiftDrafts
       end
 
       append_consecutive_work_alerts!(alerts)
+      append_night_conflict_alerts!(alerts)
       append_monthly_holiday_shortage_alerts!(alerts)
       alerts
     end
@@ -153,6 +154,47 @@ module ShiftDrafts
       s = @staff_by_id[staff_id.to_i]
       return "職員#{staff_id}" if s.nil?
       s.last_name.to_s
+    end
+
+    # 夜勤明けに勤務や休日指定が重なっていたらアラート
+    # 夜勤3日目の休みに勤務や休日指定が重なっていたらアラート
+    def append_night_conflict_alerts!(alerts)
+      return if @dates.blank?
+      # holiday request を日付 => Set[staff_id]にして引けるようにする
+      holiday_ids_by_date =
+        @shift_month.staff_holiday_requests
+                    .where(date: @dates.first..@dates.last)
+                    .group_by(&:date)
+                    .transform_values { |rows| rows.map(&:staff_id).map(&:to_i).to_set }
+
+      staff_ids = @staff_by_id.keys.map(&:to_i)
+
+      @dates.each do |date|
+        prev  = date - 1
+        prev2 = date - 2
+
+        staff_ids.each do |sid|
+          if worked_kind?(sid, prev, :night)
+            if worked_any_kind?(sid, date) || holiday_ids_by_date.fetch(date, Set.new).include?(sid)
+              (alerts[date] ||= []) << "#{staff_label(sid)}夜勤明け衝突"
+            end
+          end
+
+          if worked_kind?(sid, prev2, :night)
+            if worked_any_kind?(sid, date) || holiday_ids_by_date.fetch(date, Set.new).include?(sid)
+              (alerts[date] ||= []) << "#{staff_label(sid)}夜勤休み衝突"
+            end
+          end
+        end
+      end
+    end
+
+    def worked_kind?(staff_id, date, kind_sym)
+      return false if date.nil?
+      dkey = date.iso8601
+      kinds_hash = @draft[dkey] || {}
+      rows = kinds_hash[kind_sym.to_s] || kinds_hash[kind_sym.to_sym]
+      Array(rows).any? { |row| extract_staff_id(row).to_i == staff_id.to_i }
     end
 
     def append_monthly_holiday_shortage_alerts!(alerts)
