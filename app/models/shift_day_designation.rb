@@ -6,5 +6,8 @@ class ShiftDayDesignation < ApplicationRecord
 
   validates :date, presence: true
   validates :shift_kind, presence: true
-  validates :shift_kind, uniqueness: { scope: [:shift_month_id, :date] }
+ # day は複数人OKにしたいので「kindのユニーク」は day 以外にだけかける
+  validates :shift_kind,
+            uniqueness: { scope: [:shift_month_id, :date] },
+            unless: -> { shift_kind == "day" }
 end
