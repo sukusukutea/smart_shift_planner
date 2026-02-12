@@ -64,7 +64,15 @@ class StaffsController < ApplicationController
   end
 
   def set_occupations
-    @occupations = Occupation.all
+    order = ["管理者","介護士","看護師","ケアマネージャー","管理栄養士","事務"]
+    @occupations =
+      Occupation.order(
+        Arel.sql(
+          "CASE occupations.name " +
+            order.each_with_index.map { |name, i| "WHEN '#{name}' THEN #{i}" }.join(" ") +
+            " ELSE 999 END"
+        )
+      )
   end
 
   def staff_params

@@ -82,11 +82,11 @@
                     late_enabled_by_date:  (defined?(late_enabled_by_date) ? late_enabled_by_date  : nil),
                     required_by_date: required_by_date,
                     required_skill_by_date: (defined?(required_skill_by_date) ? required_skill_by_date : nil),
-                    staff_by_id: (defined?(staff_by_id) ? staff_by_id : nil),
+                    staff_by_id: (defined?(staff_by_id) && staff_by_id.present? ? staff_by_id : {}),
                     draft: (defined?(draft) ? draft : nil),
                     saved: (defined?(saved) ? saved : nil),
                     alerts_by_date: (defined?(alerts_by_date) ? alerts_by_date : nil),
-                    designations_by_date: (defined?(designations_by_date) ? designations_by_date : nil),
+                    designations_by_date: (defined?(designations_by_date) && designations_by_date.present? ? designations_by_date : {}),
                     holiday_requests_by_date: (defined?(holiday_requests_by_date) ? holiday_requests_by_date : nil),
                     unassigned_display_staffs_by_date: (defined?(unassigned_display_staffs_by_date) ? unassigned_display_staffs_by_date: nil)
                 }.merge(extra) %>
