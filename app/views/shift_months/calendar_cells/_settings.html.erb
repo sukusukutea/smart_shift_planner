@@ -26,19 +26,22 @@
 <% else %>
   <div class="day-slots">
     <div class="slot slot-day" data-shift-kind="day">
-      <% desig_day = designations_by_date.dig(date, "day") %>
-      <% if desig_day.present? && row_key_for(desig_day.staff) == row_key %>
-        <div class="small shift-line"><%= desig_day.staff.last_name %></div>
+      <% desig_sid = designations_by_date.dig(date, "day").to_i %>
+      <% desig_staff = staff_by_id[desig_sid] %>
+      <% if desig_staff.present? && row_key_for(desig_staff) == row_key %>
+        <div class="small shift-line"><%= desig_staff.last_name %></div>
       <% end %>
 
-      <% desig_day = designations_by_date.dig(date, "early") %>
-      <% if desig_day.present? && row_key_for(desig_day.staff) == row_key %>
-        <div class="small shift-line"><%= desig_day.staff.last_name %><span class="shift-time">730-1630</div>
+      <% desig_sid = designations_by_date.dig(date, "early").to_i %>
+      <% desig_staff = staff_by_id[desig_sid] %>
+      <% if desig_staff.present? && row_key_for(desig_staff) == row_key %>
+        <div class="small shift-line"><%= desig_staff.last_name %><span class="shift-time">730-1630</span></div>
       <% end %>
 
-      <% desig_day = designations_by_date.dig(date, "late") %>
-      <% if desig_day.present? && row_key_for(desig_day.staff) == row_key %>
-        <div class="small shift-line"><%= desig_day.staff.last_name %><span class="shift-time">11-12</div>
+      <% desig_sid = designations_by_date.dig(date, "late").to_i %>
+      <% desig_staff = staff_by_id[desig_sid] %>
+      <% if desig_staff.present? && row_key_for(desig_staff) == row_key %>
+        <div class="small shift-line"><%= desig_staff.last_name %><span class="shift-time">11-20</span></div>
       <% end %>
 
       <% requests = holiday_requests_by_date[date] || [] %>
@@ -50,9 +53,10 @@
     </div>
 
     <div class="slot slot-night" data-shift-kind="night">
-      <% desig_night = designations_by_date.dig(date, "night") %>
-      <% if desig_night.present? && row_key_for(desig_night.staff) == row_key %>
-        <div class="small shift-line"><%= desig_night.staff.last_name %></div>
+      <% desig_sid = designations_by_date.dig(date, "night").to_i %>
+      <% desig_staff = staff_by_id[desig_sid] %>
+      <% if desig_staff.present? && row_key_for(desig_staff) == row_key %>
+        <div class="small shift-line"><%= desig_staff.last_name %></div>
       <% end %>
     </div>
 

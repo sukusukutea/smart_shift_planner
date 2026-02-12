@@ -635,7 +635,7 @@ class ShiftMonthsController < ApplicationController
 
     @designations_by_date = Hash.new { |h, k| h[k] = {} }
     rows.each do |d|
-      @designations_by_date[d.date][d.shift_kind.to_s] = d
+      @designations_by_date[d.date][d.shift_kind.to_s] = d.staff_id
     end
   end
 
