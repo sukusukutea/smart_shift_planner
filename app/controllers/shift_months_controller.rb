@@ -108,6 +108,7 @@ class ShiftMonthsController < ApplicationController
   end
 
   def settings
+    preload_staffs_for
     prepare_daily_tab_vars
     prepare_holiday_tab_vars
     @weekday_requirements = build_weekday_requirements_hash
@@ -228,9 +229,19 @@ class ShiftMonthsController < ApplicationController
     holiday&.destroy
 
     ShiftDayDesignation.transaction do
-      record = @shift_month.shift_day_designations.find_or_initialize_by(date: date, staff_id: sid)
-      record.shift_kind = kind
-      record.save!
+      if kind == "day"
+        # 日勤は複数人OK：同一日・同一職員の既存designationを消してから追加
+        @shift_month.shift_day_designations.where(date: date, staff_id: sid).delete_all
+
+        record = @shift_month.shift_day_designations.find_or_initialize_by(date: date, staff_id: sid)
+        record.shift_kind = "day"
+        record.save!
+      else
+        # 早番/遅番/夜勤は1人だけ：同一日・同一kindを上書き
+        record = @shift_month.shift_day_designations.find_or_initialize_by(date: date, shift_kind: kind)
+        record.staff_id = sid
+        record.save!
+      end
     end
 
     redirect_to settings_shift_month_path(@shift_month, tab: "daily", date: date.iso8601)
@@ -635,7 +646,12 @@ class ShiftMonthsController < ApplicationController
 
     @designations_by_date = Hash.new { |h, k| h[k] = {} }
     rows.each do |d|
-      @designations_by_date[d.date][d.shift_kind.to_s] = d.staff_id
+      kind = d.shift_kind.to_s
+      if kind == "day"
+        (@designations_by_date[d.date]["day"] ||= []) << d.staff_id
+      else
+        @designations_by_date[d.date][kind] = d.staff_id
+      end
     end
   end
 
