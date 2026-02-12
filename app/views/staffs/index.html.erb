@@ -19,6 +19,7 @@
               <th style="width: 150px; background-color: #e6f0f0;">スタッフ名</th>
               <th style="width: 150px; background-color: #e6f0f0;">職種</th>
               <th style="width: 100px; background-color: #e6f0f0;">出勤日</th>
+              <th style="background-color: #e6f0f0;">日勤</th>
               <th style="background-color: #e6f0f0;">早番</th>
               <th style="background-color: #e6f0f0;">遅番</th>
               <th style="background-color: #e6f0f0;">夜勤</th>
@@ -86,13 +87,14 @@
                     <% end %>
                   </td>
 
+                  <td><%= staff.can_day   ? "○" : "-" %></td>
                   <td><%= staff.can_early ? "○" : "-" %></td>
-                  <td><%= staff.can_late ? "○" : "-" %></td>
+                  <td><%= staff.can_late  ? "○" : "-" %></td>
                   <td><%= staff.can_night ? "○" : "-" %></td>
 
                   <td><%= staff.can_visit ? "○" : "-" %></td>
                   <td><%= staff.can_drive ? "○" : "-" %></td>
-                  <td><%= staff.can_cook ? "○" : "-" %></td>
+                  <td><%= staff.can_cook  ? "○" : "-" %></td>
                 </tr>
               <% end %>
             <% else %>
