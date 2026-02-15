@@ -11,6 +11,15 @@
 <% late_rows  = day_hash["late"]  || [] %>
 <% night_rows = day_hash["night"] || [] %>
 
+<% night_first = Array(night_rows).first %>
+<% night_sid   = night_first && (night_first["staff_id"] || night_first[:staff_id]).to_i %>
+
+<% prev_hash = saved[(date - 1).iso8601] || {} %>
+<% prev_night_rows = prev_hash["night"] || [] %>
+<% prev_night_first = Array(prev_night_rows).first %>
+<% night_off_sid =
+    prev_night_first && (prev_night_first["staff_id"] || prev_night_first[:staff_id]).to_i %>
+
 <% if row_key == :req %>
   <% day_on = day_enabled_by_date[date] %>
 
@@ -134,11 +143,21 @@
     </div>
 
     <div class="slot slot-night">
+      <%# 夜勤入り（当日） %>
       <% night_rows.each do |row| %>
-        <% staff = staff_by_id[row["staff_id"].to_i] %>
+        <% sid = (row["staff_id"] || row[:staff_id]).to_i %>
+        <% staff = staff_by_id[sid] %>
         <% next if staff.nil? %>
         <% if row_key_for(staff) == row_key %>
           <div class="small"><%= staff.last_name %></div>
+        <% end %>
+      <% end %>
+
+      <%# 明け（前日夜勤者） %>
+      <% if night_off_sid.to_i > 0 && night_off_sid.to_i != night_sid.to_i %>
+        <% off_staff = staff_by_id[night_off_sid.to_i] %>
+        <% if off_staff && row_key_for(off_staff) == row_key %>
+          <div class="small"><%= off_staff.last_name %>(明け)</div>
         <% end %>
       <% end %>
     </div>
