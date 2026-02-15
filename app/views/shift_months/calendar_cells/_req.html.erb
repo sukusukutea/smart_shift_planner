@@ -1,11 +1,8 @@
 <%# locals:
-  date: (Date) 必須
-  shift_month: (ShiftMonth) 必須
-  day_enabled_by_date: (Hash<Date,Boolean>) 必須
-  required_by_date: (Hash<Date,Hash>) 必須
-  early_enabled_by_date: (Hash<Date,Boolean>) 必須
-  late_enabled_by_date: (Hash<Date,Boolean>) 必須
-  required_skill_by_date: (Hash<Date,Hash>) 必須
+  date:, shift_month:,
+  day_enabled_by_date:, required_by_date:,
+  early_enabled_by_date:, late_enabled_by_date:,
+  required_skill_by_date:(optional)
 %>
 
 <% day_on = day_enabled_by_date[date] %>

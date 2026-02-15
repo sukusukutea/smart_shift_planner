@@ -342,10 +342,10 @@ class ShiftMonthsController < ApplicationController
     end
 
     redirect_to settings_shift_month_path(@shift_month, tab: "daily"), notice: "曜日別の必要人数を保存しました"
-  rescue ApplicationController::ParameterMissing
-    redirect_to setting_shift_month_path(@shift_month, tab: "daily"), alert: "入力が見つかりません"
-  rescue ActiveRecord::RecordInvalid => each
-    redirect_to setting_shift_month_path(@shift_month, tab: "daily"), alert: "保存に失敗しました：#{e.record.errors.full_messages.join(", ")}"
+  rescue ActionController::ParameterMissing
+    redirect_to settings_shift_month_path(@shift_month, tab: "daily"), alert: "入力が見つかりません"
+  rescue ActiveRecord::RecordInvalid => e
+    redirect_to settings_shift_month_path(@shift_month, tab: "daily"), alert: "保存に失敗しました：#{e.record.errors.full_messages.join(", ")}"
   end
 
   def generate_draft
@@ -389,34 +389,34 @@ class ShiftMonthsController < ApplicationController
   end
 
   def preview
-    token = session[draft_token_session_key]
-    scope = @shift_month.shift_day_assignments.draft
-    scope = scope.where(draft_token: token) if token.present?
+    scope, _token, @draft = load_draft_for_calendar
 
-    @draft = build_assignments_hash(scope.select(:id, :date, :shift_kind, :staff_id, :slot))
+    unless scope&.exists?
+      redirect_to settings_shift_month_path(@shift_month), alert: "シフト案がありません。先に作成してください"
+      return
+    end
 
     prepare_calendar_page(assignments_hash: @draft)
   end
 
   def edit_draft
-    token = session[draft_token_session_key]
-    scope = @shift_month.shift_day_assignments.draft
-    scope = scope.where(draft_token: token) if token.present?
+    scope, _token, @draft = load_draft_for_calendar
 
-    @draft = build_assignments_hash(scope.select(:id, :date, :shift_kind, :staff_id, :slot))
+    unless scope&.exists?
+      redirect_to settings_shift_month_path(@shift_month), alert: "シフト案がありません。先に作成してください"
+      return
+    end
 
     prepare_calendar_page(assignments_hash: @draft)
   end
 
   def update_draft_assignment
-    token = session[draft_token_session_key]
+    scope, token, _draft = load_draft_for_calendar(require_token: true)
 
-    if token.blank?
+    if token.blank? || scope.nil?
       render json: { ok: false, error: "draft token missing" }, status: :unprocessable_entity
       return
     end
-
-    scope = @shift_month.shift_day_assignments.draft.where(draft_token: token)
 
     date  = Date.iso8601(params.require(:date))
     staff_id = params.require(:staff_id).to_i
@@ -458,7 +458,7 @@ class ShiftMonthsController < ApplicationController
     end
 
     # --- 右サイドバー更新用に stats を作り直す ---
-    @draft = build_assignments_hash(scope.select(:id, :date, :shift_kind, :staff_id, :slot))
+    @draft = build_draft_hash(scope)
     preload_staffs_for
 
     @stats_rows = ShiftDrafts::StatsBuilder.new(
@@ -483,12 +483,9 @@ class ShiftMonthsController < ApplicationController
   end
 
   def confirm_draft
-    token = session[draft_token_session_key]
+    scope, _token, _draft = load_draft_for_calendar
 
-    scope = @shift_month.shift_day_assignments.draft
-    scope = scope.where(draft_token: token) if token.present?
-
-    unless scope.exists?
+    unless scope&.exists?
       redirect_to preview_shift_month_path(@shift_month), alert: "シフト案がありません。先に作成してください"
       return
     end
@@ -546,6 +543,37 @@ class ShiftMonthsController < ApplicationController
     "shift_draft_token_#{@shift_month.id}"
   end
 
+  # draftのscopeとtokenをまとめて返す
+  # require_token: true のとき token がなければ [nil, nil] を返す
+  def draft_scope_and_token(require_token: false)
+    token = session[draft_token_session_key]
+
+    if require_token && token.blank?
+      return [nil, nil]
+    end
+
+    month_begin = Date.new(@shift_month.year, @shift_month.month, 1)
+    month_end   = month_begin.end_of_month
+
+    scope = @shift_month.shift_day_assignments.draft.where(date: month_begin..month_end)
+    scope = scope.where(draft_token: token) if token.present?
+
+    [scope, token]
+  end
+
+  # draft用：selectを揃えてhash化（preview/edit/update/confirmで共通）
+  def build_draft_hash(scope)
+    build_assignments_hash(scope.select(:id, :date, :shift_kind, :staff_id, :slot))
+  end
+
+  def load_draft_for_calendar(require_token: false)
+    scope, token = draft_scope_and_token(require_token: require_token)
+    return [nil, nil, nil] if scope.nil?
+
+    draft_hash = build_draft_hash(scope)
+    [scope, token, draft_hash]
+  end
+
   # カレンダー用の変数(vars:変数達の略)
   def build_calendar_vars
     @month_begin = Date.new(@shift_month.year, @shift_month.month, 1)
@@ -571,19 +599,16 @@ class ShiftMonthsController < ApplicationController
     @night_enabled_by_date = enabled_maps[:night]
 
     @day_effective_by_date = {}
+    @required_by_date = {}
 
     @dates.each do |date|
       day_on = @day_enabled_by_date[date]
 
       req = @shift_month.required_counts_for(date, shift_kind: :day)
+      @required_by_date[date] = req
+
       has_staff = req[:nurse].to_i > 0 || req[:care].to_i > 0
-
       @day_effective_by_date[date] = day_on && has_staff
-    end
-
-    @required_by_date = {}
-    @dates.each do |date|
-      @required_by_date[date] = @shift_month.required_counts_for(date, shift_kind: :day)
     end
 
     load_holidays
