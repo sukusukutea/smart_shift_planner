@@ -3,9 +3,22 @@
   day_enabled_by_date:, night_enabled_by_date:, day_effective_by_date:, required_by_date:,
   early_enabled_by_date:, late_enabled_by_date:, required_skill_by_date:,
   staff_by_id:, draft:, saved:, alerts_by_date:, designations_by_date:, holiday_requests_by_date:,
-  cell_partial:, unassigned_display_staffs_by_date:, holiday_requests_by_date:
+  cell_partial:, unassigned_display_staffs_by_date:
 %>
 <%# extra_locals: セル側に追加で渡したいlocals（Hash） %>
+
+<%# --- optional locals を local_assigns で安全に受ける（defined? をやめる） --- %>
+<% early_enabled_by_date            = local_assigns.fetch(:early_enabled_by_date, nil) %>
+<% late_enabled_by_date             = local_assigns.fetch(:late_enabled_by_date, nil) %>
+<% required_skill_by_date           = local_assigns.fetch(:required_skill_by_date, nil) %>
+<% staff_by_id                      = local_assigns.fetch(:staff_by_id, {}) || {} %>
+<% draft                            = local_assigns.fetch(:draft, nil) %>
+<% saved                            = local_assigns.fetch(:saved, nil) %>
+<% alerts_by_date                   = local_assigns.fetch(:alerts_by_date, nil) %>
+<% designations_by_date             = local_assigns.fetch(:designations_by_date, {}) || {} %>
+<% holiday_requests_by_date         = local_assigns.fetch(:holiday_requests_by_date, nil) %>
+<% unassigned_display_staffs_by_date = local_assigns.fetch(:unassigned_display_staffs_by_date, nil) %>
+<% extra                            = local_assigns[:extra_locals].is_a?(Hash) ? local_assigns[:extra_locals] : {} %>
 
 <table class="shift-calendar-month">
   <colgroup>
@@ -69,27 +82,26 @@
             <% in_month = (date.month == shift_month.month) %>
 
             <td class="day-cell <%= in_month ? "" : "is-out" %>">
-              <% extra = (defined?(extra_locals) && extra_locals.is_a?(Hash)) ? extra_locals : {} %>
               <%= render cell_partial,
-                {
-                    date: date,
-                    in_month: in_month,
-                    occupation: occupation,
-                    row_key: row_key,
-                    shift_month: shift_month,
-                    day_enabled_by_date: day_enabled_by_date,
-                    early_enabled_by_date: (defined?(early_enabled_by_date) ? early_enabled_by_date : nil),
-                    late_enabled_by_date:  (defined?(late_enabled_by_date) ? late_enabled_by_date  : nil),
-                    required_by_date: required_by_date,
-                    required_skill_by_date: (defined?(required_skill_by_date) ? required_skill_by_date : nil),
-                    staff_by_id: (defined?(staff_by_id) && staff_by_id.present? ? staff_by_id : {}),
-                    draft: (defined?(draft) ? draft : nil),
-                    saved: (defined?(saved) ? saved : nil),
-                    alerts_by_date: (defined?(alerts_by_date) ? alerts_by_date : nil),
-                    designations_by_date: (defined?(designations_by_date) && designations_by_date.present? ? designations_by_date : {}),
-                    holiday_requests_by_date: (defined?(holiday_requests_by_date) ? holiday_requests_by_date : nil),
-                    unassigned_display_staffs_by_date: (defined?(unassigned_display_staffs_by_date) ? unassigned_display_staffs_by_date: nil)
-                }.merge(extra) %>
+                        {
+                          date: date,
+                          in_month: in_month,
+                          occupation: occupation,
+                          row_key: row_key,
+                          shift_month: shift_month,
+                          day_enabled_by_date: day_enabled_by_date,
+                          early_enabled_by_date: early_enabled_by_date,
+                          late_enabled_by_date: late_enabled_by_date,
+                          required_by_date: required_by_date,
+                          required_skill_by_date: required_skill_by_date,
+                          staff_by_id: staff_by_id,
+                          draft: draft,
+                          saved: saved,
+                          alerts_by_date: alerts_by_date,
+                          designations_by_date: designations_by_date,
+                          holiday_requests_by_date: holiday_requests_by_date,
+                          unassigned_display_staffs_by_date: unassigned_display_staffs_by_date
+                        }.merge(extra) %>
             </td>
           <% end %>
         </tr>

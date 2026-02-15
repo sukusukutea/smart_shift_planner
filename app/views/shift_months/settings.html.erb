@@ -1,54 +1,45 @@
-<div class="container-fluid">
-  <div class="row min-vh-100">
-    <div id="sidebar-col" class="col-md-2 col-lg-2 p-0 bg-light border-end">
-      <%= render "layouts/sidebar" %>
-    </div>
+<% toolbar = capture do %>
+  <div class="d-flex align-items-center gap-2 mb-3" data-controller="left-sidebar">
+    <button type="button"
+            class="btn btn-sm btn-outline-secondary"
+            data-action="left-sidebar#toggle">
+      <i class="bi bi-layout-sidebar-inset"></i>
+    </button>
 
-    <div id="main-content" class="col-md-8 col-lg-8 p-4 overflow-auto">
-      <div class="d-flex align-items-center gap-2 mb-3" data-controller="left-sidebar">
-        <button type="button"
-                class="btn btn-sm btn-outline-secondary"
-                data-action="left-sidebar#toggle">
-          <i class="bi bi-layout-sidebar-inset"></i>
-        </button>
-          <%= button_to "シフト案を作成",
-                        generate_draft_shift_month_path(@shift_month),
-                        method: :post,
-                        class: "btn btn-sm btn-secondary" %>
+    <%= button_to "シフト案を作成",
+                  generate_draft_shift_month_path(@shift_month),
+                  method: :post,
+                  class: "btn btn-sm btn-secondary" %>
 
-        <div class="fw-bold ms-auto">
-          今月の休日日数：
-          <% if @shift_month.holiday_days.present? %>
-            <span class="text-danger"><%= @shift_month.holiday_days %>日</span>
-          <% else %>
-            <span class="text-muted">未設定</span>
-          <% end %>
-        </div>
-      </div>
-
-      <div class="shift-calendar"
-           data-controller="drag-scroll"
-           data-action="mousedown->drag-scroll#down mousemove->drag-scroll#move mouseup->drag-scroll#up mouseleave->drag-scroll#leave">
-        <%= render "shift_months/calendar",
-                   weeks: @weeks,
-                   shift_month: @shift_month,
-                   occupation_order: @occupation_order,
-                   holiday_by_date: @holiday_by_date,
-                   day_enabled_by_date: @day_enabled_by_date,
-                   early_enabled_by_date: @early_enabled_by_date,
-                   late_enabled_by_date: @late_enabled_by_date,
-                   night_enabled_by_date: @night_enabled_by_date,
-                   day_effective_by_date: @day_effective_by_date,
-                   required_by_date: @required_by_date,
-                   cell_partial: "shift_months/calendar_cells/settings",
-                   extra_locals: { holiday_requests_by_date: @holiday_requests_by_date },
-                   designations_by_date: @designations_by_date,
-                   staff_by_id: @staff_by_id %>
-      </div>
-    </div>
-
-    <div id="right-sidebar-col" class="col-md-2 col-lg-2 p-0 bg-light border-start">
-      <%= render "shift_months/right_sidebar" %>
+    <div class="fw-bold ms-auto">
+      今月の休日日数：
+      <% if @shift_month.holiday_days.present? %>
+        <span class="text-danger"><%= @shift_month.holiday_days %>日</span>
+      <% else %>
+        <span class="text-muted">未設定</span>
+      <% end %>
     </div>
   </div>
-</div>
+<% end %>
+
+<% right_sidebar = capture do %>
+  <%= render "shift_months/right_sidebar" %>
+<% end %>
+
+<%= render "shift_months/frame", toolbar: toolbar, right_sidebar: right_sidebar do %>
+  <%= render "shift_months/calendar",
+             weeks: @weeks,
+             shift_month: @shift_month,
+             occupation_order: @occupation_order,
+             holiday_by_date: @holiday_by_date,
+             day_enabled_by_date: @day_enabled_by_date,
+             early_enabled_by_date: @early_enabled_by_date,
+             late_enabled_by_date: @late_enabled_by_date,
+             night_enabled_by_date: @night_enabled_by_date,
+             day_effective_by_date: @day_effective_by_date,
+             required_by_date: @required_by_date,
+             cell_partial: "shift_months/calendar_cells/settings",
+             extra_locals: { holiday_requests_by_date: @holiday_requests_by_date },
+             designations_by_date: @designations_by_date,
+             staff_by_id: @staff_by_id %>
+<% end %>
