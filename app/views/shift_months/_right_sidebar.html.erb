@@ -165,6 +165,39 @@
         </div>
       <% end %>
 
+      <% if conflict && conflict["kind"] == "designation_over_ng_wday" %>
+        <div class="alert alert-warning py-2 px-2 small">
+          <div class="fw-bold mb-1">登録の確認</div>
+          <div class="mb-2">
+            この職員はこの曜日がNG設定です。勤務指定しますか？
+            <span class="text-muted ms-1">
+              （<%= Date.iso8601(conflict["date"]).strftime("%-m/%-d") rescue conflict["date"] %>）
+            </span>
+          </div>
+
+          <div class="d-flex gap-2">
+            <%= form_with url: update_designation_shift_month_path(@shift_month),
+                          method: :post,
+                          local: true,
+                          class: "m-0" do %>
+              <%= hidden_field_tag :date, conflict["date"] %>
+              <%= hidden_field_tag "designation[staff_id]", conflict["staff_id"] %>
+              <%= hidden_field_tag "designation[shift_kind]", conflict["shift_kind"] %>
+              <%= hidden_field_tag :force, "1" %>
+              <%= button_tag "はい（上書き）", class: "btn btn-sm btn-warning" %>
+            <% end %>
+
+            <%= link_to "いいえ",
+                        settings_shift_month_path(@shift_month,
+                                                  tab: "daily",
+                                                  date: conflict["date"],
+                                                  designation_staff_id: conflict["staff_id"]),
+                        class: "btn btn-sm btn-light border" %>
+          </div>
+        </div>
+      <% end %>
+
+
       <div class="mb-3">
         <p class="fw-bold small mb-2">日付を選択</p>
 

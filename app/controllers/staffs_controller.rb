@@ -20,7 +20,7 @@ class StaffsController < ApplicationController
     @staff = current_user.staffs.build(staff_params) # フォームから送られてきた情報を@staffに入れる
 
     if @staff.save
-      save_workable_wdays!(@staff)
+      save_wdays!(@staff)
       redirect_to staffs_path, notice: "職員を登録しました。"
     else
       flash.now[:alert] = "登録に失敗しました。入力内容を確認してください。"
@@ -33,7 +33,7 @@ class StaffsController < ApplicationController
 
   def update
     if @staff.update(staff_params)
-      save_workable_wdays!(@staff)
+      save_wdays!(@staff)
       redirect_to staffs_path, notice: "職員情報を更新しました"
     else
       flash.now[:alert] = "更新に失敗しました。入力内容を確認してください。"
@@ -61,6 +61,7 @@ class StaffsController < ApplicationController
 
   def set_staff
     @staff = current_user.staffs.includes(:staff_workable_wdays).find(params[:id])
+    @staff = current_user.staffs.includes(:staff_workable_wdays, :staff_unworkable_wdays).find(params[:id])
   end
 
   def set_occupations
@@ -83,18 +84,22 @@ class StaffsController < ApplicationController
       :can_day, :can_early, :can_late, :can_night,
       :can_visit, :can_drive, :can_cook,
       :workday_constraint,
+      :assignment_policy,
     )
   end
 
-  def save_workable_wdays!(staff)
-    wdays = Array(params.dig(:staff, :workable_wdays)).map(&:to_i).uniq
+  def save_wdays!(staff)
+    workable   = Array(params.dig(:staff, :workable_wdays)).map(&:to_i).uniq
+    unworkable = Array(params.dig(:staff, :unworkable_wdays)).map(&:to_i).uniq
+
     if staff.workday_constraint == "fixed"
+      staff.staff_unworkable_wdays.delete_all
       staff.staff_workable_wdays.delete_all
-      wdays.each do |wday|
-        staff.staff_workable_wdays.create!(wday: wday)
-      end
+      workable.each { |wday| staff.staff_workable_wdays.create!(wday: wday) }
     else
       staff.staff_workable_wdays.delete_all
+      staff.staff_unworkable_wdays.delete_all
+      unworkable.each { |wday| staff.staff_unworkable_wdays.create!(wday: wday) }
     end
   end
 end

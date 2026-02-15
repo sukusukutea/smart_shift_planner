@@ -49,6 +49,7 @@
 
     <div class="container mt-3">
       <% flash.each do |key, message| %> <%# keyはフラッシュメッセージの種類（:notice / :alert / :error など）%>
+      <% next if key.to_s == "conflict" %>
         <% bs_class =
           case key.to_sym
           when :notice then "alert-success"

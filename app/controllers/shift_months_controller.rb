@@ -228,6 +228,31 @@ class ShiftMonthsController < ApplicationController
 
     holiday&.destroy
 
+    # --- NG曜日チェック（candidateのみ / 日勤系だけ）---
+    if !force && %w[day early late].include?(kind)
+      staff = current_user.staffs.find_by(id: sid)
+
+      if staff&.assignment_policy.to_s == "candidate"
+        wday = ShiftMonth.ui_wday(date)
+
+        if staff&.ng_wday?(date)
+          flash[:conflict] = {
+            kind: "designation_over_ng_wday",
+            staff_id: sid,
+            date: date.iso8601,
+            shift_kind: kind
+          }
+          redirect_to settings_shift_month_path(
+            @shift_month,
+            tab: "daily",
+            date: date.iso8601,
+            designation_staff_id: sid
+          )
+          return
+        end
+      end
+    end
+
     ShiftDayDesignation.transaction do
       if kind == "day"
         # 日勤は複数人OK：同一日・同一職員の既存designationを消してから追加

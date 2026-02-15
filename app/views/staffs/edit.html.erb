@@ -72,44 +72,67 @@
               <div class="mb-3">
                 <div class="d-flex align-items-start gap-4">
                   <div class="form-label fw-bold mb-0" style="min-width: 140px;"> 
-                    出勤日（日勤）
+                    出勤日
                   </div>
 
-                  <div class="d-flex flex-column">
-                    <div class="d-flex gap-3">
-                      <label class="d-flex align-items-center gap-1 mb-0">
+                  <div class="d-flex flex-column gap-2">
+                    <% wdays = %w[月 火 水 木 金 土 日] %>
+
+                    <% checked_workable   = @staff.staff_workable_wdays.map(&:wday) %>
+                    <% checked_unworkable = @staff.staff_unworkable_wdays.map(&:wday) %>
+
+                    <% fixed = (@staff.workday_constraint == "fixed") %>
+                    <% free  = !fixed %>
+
+                    <div class="d-flex align-items-start flex-wrap gap-3">
+                      <label class="d-flex align-items-center gap-1 mb-0 mt-1">
                         <%= f.radio_button :workday_constraint, "free",
                             checked: (@staff.workday_constraint.presence || "free") == "free",
                             data: { action: "change->workdayConstraint" } %>
                         制限なし
                       </label>
 
-                      <label class="d-flex align-items-center gap-1 mb-0">
+                      <fieldset
+                        id="unworkable-wdays-fieldset"
+                        class="mt-2 workable-wdays <%= free ? "is-enabled" : "is-disabled" %>"
+                        <%= "disabled" unless free %>>
+                        <div class="small text-muted mb-1">出勤不可日</div>
+
+                        <div class="d-flex flex-wrap gap-2 small">
+                          <% 7.times do |i| %>
+                            <label class="d-flex align-items-center gap-1">
+                              <%= check_box_tag "staff[unworkable_wdays][]", i, checked_unworkable.include?(i) %>
+                              <%= wdays[i] %>
+                            </label>
+                          <% end %>
+                        </div>
+                      </fieldset>
+                    </div>
+
+                    <div class="d-flex align-items-start flex-wrap gap-3">
+                      <label class="d-flex align-items-center gap-1 mb-0 mt-1">
                         <%= f.radio_button :workday_constraint, "fixed",
                               checked: @staff.workday_constraint == "fixed",
                               data: { action: "change->workdayConstraint" } %>
                         出勤日指定
                       </label>
+
+                      <fieldset
+                        id="workable-wdays-fieldset"
+                        class="mt-2 workable-wdays <%= fixed ? "is-enabled" : "is-disabled" %>"
+                        <%= "disabled" unless fixed %>>
+                        <div class="small text-muted mb-1">出勤日</div>
+
+                        <div class="d-flex flex-wrap gap-2 small">
+                          <% 7.times do |i| %>
+                            <label class="d-flex align-items-center gap-1">
+                              <%= check_box_tag "staff[workable_wdays][]", i, checked_workable.include?(i) %>
+                              <%= wdays[i] %>
+                            </label>
+                          <% end %>
+                        </div>
+                      </fieldset>
                     </div>
-
-                    <% wdays = %w[月 火 水 木 金 土 日] %>
-                    <% checked = @staff.staff_workable_wdays.map(&:wday) %>
-                    <% fixed = (@staff.workday_constraint == "fixed") %>
-
-                    <fieldset
-                      id="workable-wdays-fieldset"
-                      class="mt-2 workable-wdays <%= fixed ? "is-enabled" : "is-disabled" %>"
-                      <%= "disabled" unless fixed %>>
-
-                      <div class="d-flex flex-wrap gap-2 small">
-                        <% 7.times do |i| %>
-                          <label class="d-flex align-items-center gap-1">
-                            <%= check_box_tag "staff[workable_wdays][]", i, checked.include?(i) %>
-                            <%= wdays[i] %>
-                          </label>
-                        <% end %>
-                      </div>
-                    </fieldset>
                   </div>
                 </div>
               </div>
