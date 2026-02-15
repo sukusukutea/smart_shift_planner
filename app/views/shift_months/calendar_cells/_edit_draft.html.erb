@@ -32,7 +32,10 @@
          { drive: 0, cook: 0 } %>
     <% labels = [] %>
     <% labels << "早" if early_enabled_by_date&.[](date) %>
-    <% labels << "遅" if late_enabled_by_date&.[](date) %>
+    <% if late_enabled_by_date&.[](date) %>
+      <% late_slots = shift_month.late_slots_for(date).to_i %>
+      <% labels << (late_slots >= 2 ? "遅2" : "遅") %>
+    <% end %>
     <div class="req-count text-muted">
       日勤 看<%= req_roles[:nurse] %> 介<%= req_roles[:care] %> 運<%= req_skills[:drive] %> 調<%= req_skills[:cook] %>
       <% if labels.any? %>
