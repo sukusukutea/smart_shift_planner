@@ -6,103 +6,38 @@
   holiday_requests_by_date:, designations_by_date:
 %>
 
-<% day_hash = draft[date.iso8601] || {} %>
-<% day_rows   = day_hash["day"]   || [] %>
-<% early_rows = day_hash["early"] || [] %>
-<% late_rows  = day_hash["late"]  || [] %>
-<% night_rows = day_hash["night"] || [] %>
-<% night_first = Array(night_rows).first %>
-<% night_sid  =
-    night_first && (night_first["staff_id"] || night_first[:staff_id]).to_i %>
-<% prev_hash = draft[(date -1).iso8601] || {} %>
-<% prev_night_rows = prev_hash["night"] || [] %>
-<% prev_night_first = Array(prev_night_rows).first %>
-<% night_off_sid =
-    prev_night_first && (prev_night_first["staff_id"] || prev_night_first[:staff_id]).to_i %>
-<% night_related_ids = [night_sid, night_off_sid].compact.map(&:to_i) %>
+<% ctx = shift_day_context(draft, date) %>
+<% day_rows   = ctx[:day_rows] %>
+<% early_rows = ctx[:early_rows] %>
+<% late_rows  = ctx[:late_rows] %>
+<% night_rows = ctx[:night_rows] %>
+<% night_sid  = ctx[:night_sid] %>
+<% night_off_sid = ctx[:night_off_sid] %>
+<% night_related_ids = ctx[:night_related_ids] %>
 
 <% if row_key == :req %>
-  <% day_on = day_enabled_by_date[date] %>
-
-  <% if day_on %>
-    <% req_roles  = required_by_date[date] || { nurse: 0, care: 0 } %>
-    <% req_skills =
-         (defined?(required_skill_by_date) && required_skill_by_date) ?
-         (required_skill_by_date[date] || { drive: 0, cook: 0 }) :
-         { drive: 0, cook: 0 } %>
-    <% labels = [] %>
-    <% labels << "早" if early_enabled_by_date&.[](date) %>
-    <% if late_enabled_by_date&.[](date) %>
-      <% late_slots = shift_month.late_slots_for(date).to_i %>
-      <% labels << (late_slots >= 2 ? "遅2" : "遅") %>
-    <% end %>
-    <div class="req-count text-muted">
-      日勤 看<%= req_roles[:nurse] %> 介<%= req_roles[:care] %> 運<%= req_skills[:drive] %> 調<%= req_skills[:cook] %>
-      <% if labels.any? %>
-        <span class="ms-2"><%= labels.join("") %></span>
-      <% end %>
-    </div>
-  <% else %>
-    <div class="req-count text-muted">日勤 -</div>
-  <% end %>
+  <%= render "shift_months/calendar_cells/req",
+             date: date,
+             shift_month: shift_month,
+             day_enabled_by_date: day_enabled_by_date,
+             required_by_date: required_by_date,
+             early_enabled_by_date: early_enabled_by_date,
+             late_enabled_by_date: late_enabled_by_date,
+             required_skill_by_date: required_skill_by_date %>
 <% elsif row_key == :alert %>
-  <% msgs = Array(alerts_by_date[date]) %>
-
-  <%# --- 夜勤明け（前日の夜勤者） --- %>
-  <% night_off_id = night_off_sid.to_i %>
-
-  <%# 当日の割当ID（draft） %>
-  <% today_assigned_ids = [] %>
-  <% { day: day_rows, early: early_rows, late: late_rows, night: night_rows }.each do |_k, rows| %>
-    <% Array(rows).each do |r| %>
-      <% sid = (r["staff_id"] || r[:staff_id]).to_i %>
-      <% today_assigned_ids << sid if sid > 0 %>
-    <% end %>
-  <% end %>
-
-  <%# ① 夜勤明け：勤務が入っていたら衝突 %>
-  <% if night_off_id > 0 && today_assigned_ids.include?(night_off_id) %>
-    <% msgs = msgs + ["夜勤明けに勤務が衝突"] %>
-  <% end %>
-
-  <%# ①-2 夜勤明け：休日指定が入っていたら衝突 %>
-  <% if night_off_id > 0 %>
-    <% holiday_ids_today = Array(holiday_requests_by_date && holiday_requests_by_date[date]).map(&:to_i) %>
-    <% if holiday_ids_today.include?(night_off_id) %>
-      <% msgs = msgs + ["夜勤明けに休日指定が衝突"] %>
-    <% end %>
-  <% end %>
-
-  <%# ② 明け翌日の休み（夜勤入りの2日後）：勤務指定が入ってたら衝突 %>
-  <% if designations_by_date.present? %>
-    <% night_in_day = date - 2 %> <%# 2日前が夜勤入りなら、今日は「明け翌日の休み」 %>
-    <% night_in_hash = draft[night_in_day.iso8601] || {} %>
-    <% night_in_rows = night_in_hash["night"] || [] %>
-    <% night_in_first = Array(night_in_rows).first %>
-    <% night_in_sid = night_in_first && (night_in_first["staff_id"] || night_in_first[:staff_id]).to_i %>
-
-    <% if night_in_sid.to_i > 0 %>
-      <% desig = designations_by_date[date] || {} %>
-      <% desig_staff_ids = desig.values.map(&:to_i).reject { |x| x <= 0 } %>
-      <% if desig_staff_ids.include?(night_in_sid.to_i) %>
-        <% msgs = msgs + ["明け翌日休みに勤務指定が衝突"] %>
-      <% end %>
-    <% end %>
-  <% end %>
+  <% base_msgs = Array(alerts_by_date[date]) %>
+  <% msgs = augment_alert_messages_for_night_conflicts(
+              base_msgs: base_msgs,
+              draft: draft,
+              date: date,
+              holiday_requests_by_date: holiday_requests_by_date,
+              designations_by_date: designations_by_date
+            ) %>
 
   <% if msgs.any? %>
     <div class="d-flex flex-wrap gap-1 small">
       <% msgs.each do |msg| %>
-        <% badge_class =
-            if msg.include?("6連勤") || msg.include?("5連勤超")
-              "text-bg-danger"
-            elsif msg.include?("夜勤明けに勤務が衝突") || msg.include?("夜勤明けに休日指定が衝突") || msg.include?("明け翌日休みに勤務指定が衝突")
-              "text-bg-danger"
-            elsif msg.include?("2連休未成立")
-              "text-bg-warning"
-            else
-              "text-bg-secondary"
-            end %>
+        <% badge_class = alert_badge_class(msg) %>
         <span class="badge rounded-pill <%= badge_class %>"><%= msg %></span>
       <% end %>
     </div>
@@ -115,17 +50,7 @@
     <% editable_row_keys = %i[care care_mgr cook clerk] %>
     <% if editable_row_keys.include?(row_key) && in_month %>
       <%# 介護/ケアマネ/調理/事務：固定順名簿で「勤務 or 休み」を表示 %>
-      <% staffs_for_row =
-           staff_by_id.values
-                      .select { |s| s&.active? && row_key_for(s) == row_key }
-                      .sort_by do |s|
-                        [
-                          s.workday_constraint == "free" ? 0 : 1,
-                          s.last_name_kana.to_s,
-                          s.first_name_kana.to_s,
-                          s.id.to_i
-                        ]
-                      end %>
+      <% staffs_for_row = sorted_staffs_for_row(staff_by_id: staff_by_id, row_key: row_key) %>
 
       <% assigned_kind_by_id = {} %>
       <% { day: day_rows, early: early_rows, late: late_rows }.each do |kind_sym, rows| %>
@@ -209,7 +134,8 @@
 
     <% if !(row_key == :care && in_month) %>
       <% early_rows.each do |row| %>
-        <% staff = staff_by_id[row["staff_id"]] %>
+        <% sid = (row["staff_id"] || row[:staff_id]).to_i %>
+        <% staff = staff_by_id[sid] %>
         <% next if staff.nil? %>
         <% if row_key_for(staff) == row_key %>
           <div class="small shift-line">
@@ -219,7 +145,8 @@
       <% end %>
 
       <% late_rows.each do |row| %>
-        <% staff = staff_by_id[row["staff_id"]] %>
+        <% sid = (row["staff_id"] || row[:staff_id]).to_i %>
+        <% staff = staff_by_id[sid] %>
         <% next if staff.nil? %>
         <% if row_key_for(staff) == row_key %>
           <div class="small shift-line">
@@ -232,7 +159,8 @@
 
     <div class="slot slot-night">
       <% night_rows.each do |row| %>
-        <% staff = staff_by_id[row["staff_id"]] %>
+        <% sid = (row["staff_id"] || row[:staff_id]).to_i %>
+        <% staff = staff_by_id[sid] %>
         <% next if staff.nil? %>
         <% if row_key_for(staff) == row_key %>
           <div class="small"><%= staff.last_name %></div>

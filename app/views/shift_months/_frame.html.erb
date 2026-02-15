@@ -1,0 +1,21 @@
+<div class="container-fluid">
+  <div class="row min-vh-100">
+    <div id="sidebar-col" class="col-md-2 col-lg-2 p-0 bg-light border-end">
+      <%= render "layouts/sidebar" %>
+    </div>
+
+    <div id="main-content" class="col-md-8 col-lg-8 p-4 overflow-auto">
+      <%= toolbar %>
+
+      <div class="shift-calendar"
+           data-controller="drag-scroll"
+           data-action="mousedown->drag-scroll#down mousemove->drag-scroll#move mouseup->drag-scroll#up mouseleave->drag-scroll#leave">
+        <%= yield %>
+      </div>
+    </div>
+
+    <div id="right-sidebar-col" class="col-md-2 col-lg-2 p-0 bg-light border-start">
+      <%= right_sidebar %>
+    </div>
+  </div>
+</div>

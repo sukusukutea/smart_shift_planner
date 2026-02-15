@@ -16,40 +16,7 @@ class ShiftMonthsController < ApplicationController
     scope = @shift_month.shift_day_assignments.confirmed.where(date: @month_begin..@month_end)
     @saved = build_assignments_hash(scope.select(:id, :date, :shift_kind, :staff_id, :slot))
 
-    preload_staffs_for
-
-    @unassigned_display_staffs_by_date =
-      ShiftDrafts::UnassignedDisplayStaffsBuilder
-        .new(dates: @dates, staff_by_id: @staff_by_id, assignments_hash: @saved)
-        .call
-
-    @required_skill_by_date = build_required_skill_by_date
-
-    @stats_rows = ShiftDrafts::StatsBuilder.new(
-      shift_month: @shift_month,
-      staff_by_id: @staff_by_id,
-      draft: @saved
-    ).call
-
-    alert_dates = (@month_begin..@month_end).to_a
-
-    @alerts_by_date = ShiftDrafts::AlertsBuilder.new(
-      dates: alert_dates,
-      draft: @saved,
-      staff_by_id: @staff_by_id,
-      required_by_date: @required_by_date,
-      enabled_by_date: {
-        day: @day_enabled_by_date,
-        early: @early_enabled_by_date,
-        late: @late_enabled_by_date,
-        night: @night_enabled_by_date
-      },
-      shift_month: @shift_month
-    ).call
-
-    @occupation_order_with_alert = @occupation_order + [
-      { key: :alert, label: "アラート", row_class: "occ-row-alert" }
-    ]
+    prepare_calendar_page(assignments_hash: @saved)
   end
 
   def create
@@ -428,40 +395,7 @@ class ShiftMonthsController < ApplicationController
 
     @draft = build_assignments_hash(scope.select(:id, :date, :shift_kind, :staff_id, :slot))
 
-    preload_staffs_for # staffのデータ
-
-    @unassigned_display_staffs_by_date =
-      ShiftDrafts::UnassignedDisplayStaffsBuilder
-        .new(dates: @dates, staff_by_id: @staff_by_id, assignments_hash: @draft)
-        .call
-
-    @required_skill_by_date = build_required_skill_by_date
-
-    @stats_rows = ShiftDrafts::StatsBuilder.new(
-      shift_month: @shift_month,
-      staff_by_id: @staff_by_id,
-      draft: @draft
-    ).call # stats = statistics(統計・集計)の略
-
-    alert_dates = (@month_begin..@month_end).to_a
-
-    @alerts_by_date = ShiftDrafts::AlertsBuilder.new(
-      dates: alert_dates,
-      draft: @draft,
-      staff_by_id: @staff_by_id,
-      required_by_date: @required_by_date,
-      enabled_by_date: {
-        day: @day_enabled_by_date,
-        early: @early_enabled_by_date,
-        late: @late_enabled_by_date,
-        night: @night_enabled_by_date
-      },
-      shift_month: @shift_month
-    ).call
-
-    @occupation_order_with_alert = @occupation_order + [
-      { key: :alert, label: "アラート", row_class: "occ-row-alert" }
-    ]
+    prepare_calendar_page(assignments_hash: @draft)
   end
 
   def edit_draft
@@ -471,40 +405,7 @@ class ShiftMonthsController < ApplicationController
 
     @draft = build_assignments_hash(scope.select(:id, :date, :shift_kind, :staff_id, :slot))
 
-    preload_staffs_for # staffのデータ
-
-    @unassigned_display_staffs_by_date =
-      ShiftDrafts::UnassignedDisplayStaffsBuilder
-        .new(dates: @dates, staff_by_id: @staff_by_id, assignments_hash: @draft)
-        .call
-
-    @required_skill_by_date = build_required_skill_by_date
-
-    @stats_rows = ShiftDrafts::StatsBuilder.new(
-      shift_month: @shift_month,
-      staff_by_id: @staff_by_id,
-      draft: @draft
-    ).call # stats = statistics(統計・集計)の略
-
-    alert_dates = (@month_begin..@month_end).to_a
-
-    @alerts_by_date = ShiftDrafts::AlertsBuilder.new(
-      dates: alert_dates,
-      draft: @draft,
-      staff_by_id: @staff_by_id,
-      required_by_date: @required_by_date,
-      enabled_by_date: {
-        day: @day_enabled_by_date,
-        early: @early_enabled_by_date,
-        late: @late_enabled_by_date,
-        night: @night_enabled_by_date
-      },
-      shift_month: @shift_month
-    ).call
-
-    @occupation_order_with_alert = @occupation_order + [
-      { key: :alert, label: "アラート", row_class: "occ-row-alert" }
-    ]
+    prepare_calendar_page(assignments_hash: @draft)
   end
 
   def update_draft_assignment
@@ -766,6 +667,43 @@ class ShiftMonthsController < ApplicationController
     end
 
     h
+  end
+
+   # preview/edit_draft/show で共通の「集計・アラート・未割当表示」などをまとめてセットする
+  def prepare_calendar_page(assignments_hash:)
+    preload_staffs_for
+
+    @unassigned_display_staffs_by_date =
+      ShiftDrafts::UnassignedDisplayStaffsBuilder
+        .new(dates: @dates, staff_by_id: @staff_by_id, assignments_hash: assignments_hash)
+        .call
+
+    @required_skill_by_date = build_required_skill_by_date
+
+    @stats_rows = ShiftDrafts::StatsBuilder.new(
+      shift_month: @shift_month,
+      staff_by_id: @staff_by_id,
+      draft: assignments_hash
+    ).call
+
+    alert_dates = (@month_begin..@month_end).to_a
+    @alerts_by_date = ShiftDrafts::AlertsBuilder.new(
+      dates: alert_dates,
+      draft: assignments_hash,
+      staff_by_id: @staff_by_id,
+      required_by_date: @required_by_date,
+      enabled_by_date: {
+        day: @day_enabled_by_date,
+        early: @early_enabled_by_date,
+        late: @late_enabled_by_date,
+        night: @night_enabled_by_date
+      },
+      shift_month: @shift_month
+    ).call
+
+    @occupation_order_with_alert = @occupation_order + [
+      { key: :alert, label: "アラート", row_class: "occ-row-alert" }
+    ]
   end
 
   def build_required_skill_by_date

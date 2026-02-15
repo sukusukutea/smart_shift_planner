@@ -5,58 +5,29 @@
   alerts_by_date:, unassigned_display_staffs_by_date:
 %>
 
-<% day_hash = saved[date.iso8601] || {} %>
-<% day_rows   = day_hash["day"]   || [] %>
-<% early_rows = day_hash["early"] || [] %>
-<% late_rows  = day_hash["late"]  || [] %>
-<% night_rows = day_hash["night"] || [] %>
-
-<% night_first = Array(night_rows).first %>
-<% night_sid   = night_first && (night_first["staff_id"] || night_first[:staff_id]).to_i %>
-
-<% prev_hash = saved[(date - 1).iso8601] || {} %>
-<% prev_night_rows = prev_hash["night"] || [] %>
-<% prev_night_first = Array(prev_night_rows).first %>
-<% night_off_sid =
-    prev_night_first && (prev_night_first["staff_id"] || prev_night_first[:staff_id]).to_i %>
+<% ctx = shift_day_context(saved, date) %>
+<% day_rows   = ctx[:day_rows] %>
+<% early_rows = ctx[:early_rows] %>
+<% late_rows  = ctx[:late_rows] %>
+<% night_rows = ctx[:night_rows] %>
+<% night_sid  = ctx[:night_sid] %>
+<% night_off_sid = ctx[:night_off_sid] %>
 
 <% if row_key == :req %>
-  <% day_on = day_enabled_by_date[date] %>
-
-  <% if day_on %>
-    <% req_roles = required_by_date[date] || { nurse: 0, care: 0 } %>
-    <% req_skills =
-      (defined?(required_skill_by_date) && required_skill_by_date) ?
-      (required_skill_by_date[date] || { drive: 0, cook: 0 }) :
-      { drive: 0, cook: 0 } %>
-    <% labels = [] %>
-    <% labels << "早" if early_enabled_by_date&.[](date) %>
-    <% if late_enabled_by_date&.[](date) %>
-      <% late_slots = shift_month.late_slots_for(date).to_i %>
-      <% labels << (late_slots >= 2 ? "遅2" : "遅") %>
-    <% end %>
-    <div class="req-count text-muted">
-      日勤 看<%= req_roles[:nurse] %> 介<%= req_roles[:care] %> 運<%= req_skills[:drive] %> 調<%= req_skills[:cook] %>
-      <% if labels.any? %>
-        <span class="ms-2"><%= labels.join("") %></span>
-      <% end %>
-    </div>
-  <% else %>
-    <div class="req-count text-muted">日勤 -</div>
-  <% end %>
+  <%= render "shift_months/calendar_cells/req",
+             date: date,
+             shift_month: shift_month,
+             day_enabled_by_date: day_enabled_by_date,
+             required_by_date: required_by_date,
+             early_enabled_by_date: early_enabled_by_date,
+             late_enabled_by_date: late_enabled_by_date,
+             required_skill_by_date: required_skill_by_date %>
 <% elsif row_key == :alert %>
   <% msgs = Array(alerts_by_date[date]) %>
   <% if msgs.any? %>
     <div class="d-flex flex-wrap gap-1 small">
       <% msgs.each do |msg| %>
-        <% badge_class =
-            if msg.include?("6連勤") || msg.include?("5連勤超")
-              "text-bg-danger"
-            elsif msg.include?("2連休未成立")
-              "text-bg-warning"
-            else
-              "text-bg-secondary"
-            end %>
+        <% badge_class = alert_badge_class(msg) %>
         <span class="badge rounded-pill <%= badge_class %>"><%= msg %></span>
       <% end %>
     </div>

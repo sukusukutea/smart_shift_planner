@@ -1,54 +1,43 @@
-<div class="container-fluid">
-  <div class="row min-vh-100">
-    <div id="sidebar-col" class="col-md-2 col-lg-2 p-0 bg-light border-end">
-      <%= render "layouts/sidebar" %>
-    </div>
+<% toolbar = capture do %>
+  <div class="d-flex align-items-center gap-2 mb-3" data-controller="left-sidebar">
+    <button type="button"
+            class="btn btn-sm btn-outline-secondary"
+            data-action="left-sidebar#toggle">
+      <i class="bi bi-layout-sidebar-inset"></i>
+    </button>
 
-    <div id="main-content" class="col-md-8 col-lg-8 p-4 overflow-auto">
-      <div class="d-flex align-items-center gap-2 mb-3" data-controller="left-sidebar">
-        <button type="button"
-                class="btn btn-sm btn-outline-secondary"
-                data-action="left-sidebar#toggle">
-          <i class="bi bi-layout-sidebar-inset"></i>
-        </button>
-
-        <%= link_to "戻る", settings_shift_month_path(@shift_month), class:"btn btn-sm btn-light border" %>
-        <%= link_to "手修正する", edit_draft_shift_month_path(@shift_month), class: "btn btn-sm btn-primary" %>
-        <%= button_to "保存して終了", confirm_draft_shift_month_path(@shift_month), method: :post, class: "btn btn-sm btn-secondary" %>
-        <%= button_to "再生成",
-                      generate_draft_shift_month_path(@shift_month),
-                      method: :post,
-                      class: "btn btn-sm btn-success",
-                      data: { turbo_confirm: "現在のシフト案を破棄して、再生成します。よろしいですか？" } %>
-      </div>
-
-      <div class="shift-calendar"
-           data-controller="drag-scroll"
-           data-action="mousedown->drag-scroll#down mousemove->drag-scroll#move mouseup->drag-scroll#up mouseleave->drag-scroll#leave">
-
-        <%= render "shift_months/calendar",
-                  weeks: @weeks,
-                  shift_month: @shift_month,
-                  occupation_order: @occupation_order_with_alert,
-                  holiday_by_date:  @holiday_by_date,
-                  day_enabled_by_date:   @day_enabled_by_date,
-                  night_enabled_by_date: @night_enabled_by_date,
-                  early_enabled_by_date: @early_enabled_by_date,
-                  late_enabled_by_date:  @late_enabled_by_date,
-                  day_effective_by_date: @day_effective_by_date,
-                  required_by_date: @required_by_date,
-                  required_skill_by_date: @required_skill_by_date,
-                  cell_partial: "shift_months/calendar_cells/preview",
-                  draft: @draft,
-                  staff_by_id: @staff_by_id,
-                  designations_by_date: @designations_by_date,
-                  alerts_by_date: @alerts_by_date,
-                  unassigned_display_staffs_by_date: @unassigned_display_staffs_by_date %>
-      </div>
-    </div>
-
-    <div id="right-sidebar-col" class="col-md-2 col-lg-2 p-0 bg-light border-start">
-      <%= render "shift_months/draft_sidebar", stats_rows: @stats_rows, shift_month: @shift_month %>
-    </div>
+    <%= link_to "戻る", settings_shift_month_path(@shift_month), class:"btn btn-sm btn-light border" %>
+    <%= link_to "手修正する", edit_draft_shift_month_path(@shift_month), class: "btn btn-sm btn-primary" %>
+    <%= button_to "保存して終了", confirm_draft_shift_month_path(@shift_month), method: :post, class: "btn btn-sm btn-secondary" %>
+    <%= button_to "再生成",
+                  generate_draft_shift_month_path(@shift_month),
+                  method: :post,
+                  class: "btn btn-sm btn-success",
+                  data: { turbo_confirm: "現在のシフト案を破棄して、再生成します。よろしいですか？" } %>
   </div>
-</div>
+<% end %>
+
+<% right_sidebar = capture do %>
+  <%= render "shift_months/draft_sidebar", stats_rows: @stats_rows, shift_month: @shift_month %>
+<% end %>
+
+<%= render "shift_months/frame", toolbar: toolbar, right_sidebar: right_sidebar do %>
+  <%= render "shift_months/calendar",
+             weeks: @weeks,
+             shift_month: @shift_month,
+             occupation_order: @occupation_order_with_alert,
+             holiday_by_date:  @holiday_by_date,
+             day_enabled_by_date:   @day_enabled_by_date,
+             night_enabled_by_date: @night_enabled_by_date,
+             early_enabled_by_date: @early_enabled_by_date,
+             late_enabled_by_date:  @late_enabled_by_date,
+             day_effective_by_date: @day_effective_by_date,
+             required_by_date: @required_by_date,
+             required_skill_by_date: @required_skill_by_date,
+             cell_partial: "shift_months/calendar_cells/preview",
+             draft: @draft,
+             staff_by_id: @staff_by_id,
+             designations_by_date: @designations_by_date,
+             alerts_by_date: @alerts_by_date,
+             unassigned_display_staffs_by_date: @unassigned_display_staffs_by_date %>
+<% end %>

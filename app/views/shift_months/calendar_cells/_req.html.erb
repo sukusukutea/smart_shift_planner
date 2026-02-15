@@ -1,0 +1,40 @@
+<%# locals:
+  date: (Date) 必須
+  shift_month: (ShiftMonth) 必須
+  day_enabled_by_date: (Hash<Date,Boolean>) 必須
+  required_by_date: (Hash<Date,Hash>) 必須
+  early_enabled_by_date: (Hash<Date,Boolean>) 必須
+  late_enabled_by_date: (Hash<Date,Boolean>) 必須
+  required_skill_by_date: (Hash<Date,Hash>) 必須
+%>
+
+<% day_on = day_enabled_by_date[date] %>
+
+<% required_skill_by_date = local_assigns[:required_skill_by_date] %>
+
+<% if day_on %>
+  <% req_roles = required_by_date[date] || { nurse: 0, care: 0 } %>
+
+  <% req_skills =
+       if required_skill_by_date.is_a?(Hash)
+         (required_skill_by_date[date] || { drive: 0, cook: 0 })
+       else
+         (shift_month.required_skill_counts_for(date) || { drive: 0, cook: 0 })
+       end %>
+
+  <% labels = [] %>
+  <% labels << "早" if early_enabled_by_date&.[](date) %>
+  <% if late_enabled_by_date&.[](date) %>
+    <% late_slots = shift_month.late_slots_for(date).to_i %>
+    <% labels << (late_slots >= 2 ? "遅2" : "遅") %>
+  <% end %>
+
+  <div class="req-count text-muted">
+    日勤 看<%= req_roles[:nurse] %> 介<%= req_roles[:care] %> 運<%= req_skills[:drive] %> 調<%= req_skills[:cook] %>
+    <% if labels.any? %>
+      <span class="ms-2"><%= labels.join("") %></span>
+    <% end %>
+  </div>
+<% else %>
+  <div class="req-count text-muted">日勤 -</div>
+<% end %>
