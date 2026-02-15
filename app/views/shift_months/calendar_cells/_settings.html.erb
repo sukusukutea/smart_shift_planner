@@ -12,7 +12,10 @@
     <% req_skills = shift_month.required_skill_counts_for(date) || { drive: 0, cook: 0 } %>
     <% labels = [] %>
     <% labels << "早" if early_enabled_by_date&.[](date) %>
-    <% labels << "遅" if late_enabled_by_date&.[](date) %>
+    <% if late_enabled_by_date&.[](date) %>
+      <% late_slots = shift_month.late_slots_for(date).to_i %>
+      <% labels << (late_slots >= 2 ? "遅2" : "遅") %>
+    <% end %>
     <div class="req-count text-muted">
       日勤 看<%= req_roles[:nurse] %> 介<%= req_roles[:care] %> 運<%= req_skills[:drive] %> 調<%= req_skills[:cook] %>
       <% if labels.any? %>
@@ -40,9 +43,11 @@
         <div class="small shift-line"><%= desig_staff.last_name %><span class="shift-time">730-1630</span></div>
       <% end %>
 
-      <% desig_sid = designations_by_date.dig(date, "late").to_i %>
-      <% desig_staff = staff_by_id[desig_sid] %>
-      <% if desig_staff.present? && row_key_for(desig_staff) == row_key %>
+      <% late_ids = Array(designations_by_date.dig(date, "late")).map(&:to_i) %>
+      <% late_ids.each do |desig_sid| %>
+        <% desig_staff = staff_by_id[desig_sid] %>
+        <% next if desig_staff.blank? %>
+        <% next unless row_key_for(desig_staff) == row_key %>
         <div class="small shift-line"><%= desig_staff.last_name %><span class="shift-time">11-20</span></div>
       <% end %>
 

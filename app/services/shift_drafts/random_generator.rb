@@ -20,7 +20,13 @@ module ShiftDrafts
       designations = @shift_month.shift_day_designations.where(date: month_begin..month_end)
       designations_by_date = Hash.new { |h, k| h[k] = {} }
       designations.each do |d|
-        designations_by_date[d.date][d.shift_kind.to_s] = d.staff_id
+        kind = d.shift_kind.to_s
+
+        if kind == "late" || kind == "day"
+          (designations_by_date[d.date][kind] ||= []) << d.staff_id
+        else
+          designations_by_date[d.date][kind] = d.staff_id
+        end
       end # 返り値 designations_by_date[date]["day"] => staff_id　みたいに引ける形
 
       @designations_by_date = designations_by_date
@@ -66,17 +72,33 @@ module ShiftDrafts
           sid = designations_by_date.dig(date, kind.to_s)
           next if sid.blank?
 
-          sid = sid.to_i
-          (day_hash[kind] ||= []) << { slot: (day_hash[kind]&.size || 0), staff_id: sid }
-          assigned_today.add(sid)
-          track_work!(sid, date: date)
-          after_assigned!(sid, date: date, kind: kind, month_end: @month_end)
+          if kind == :late || kind == :day
+            Array(sid).each do |staff_id|
+              staff_id = staff_id.to_i
+              rows = (day_hash[kind] ||= [])
+              rows << { slot: rows.size, staff_id: staff_id }
+              assigned_today.add(staff_id)
+              track_work!(staff_id, date: date)
+              after_assigned!(staff_id, date: date, kind: kind, month_end: @month_end)
+            end
+          else
+            staff_id = sid.to_i
+            rows = (day_hash[kind] ||= [])
+            rows << { slot: rows.size, staff_id: staff_id }
+            assigned_today.add(staff_id)
+            track_work!(staff_id, date: date)
+            after_assigned!(staff_id, date: date, kind: kind, month_end: @month_end)
+          end
         end
 
         fill_order = [:early, :late, :day, :night]
         fill_order.each do |kind|
           next unless enabled_map[kind] # OFFなら割当しない
-          next if kind != :day && day_hash[kind].present?
+          # day以外は基本１枠。遅番のみ日別設定で２枠まで許可する
+          if kind != :day
+            limit = (kind == :late) ? @shift_month.late_slots_for(date) : 1
+            next if Array(day_hash[kind]).size >= limit
+          end
 
           if kind == :day
             counts = @shift_month.required_counts_for(date, shift_kind: :day)
@@ -172,7 +194,7 @@ module ShiftDrafts
 
           next if staff.nil? # 候補0なら空欄
 
-          (day_hash[kind] ||= []) << { slot: 0, staff_id: staff.id }
+          (day_hash[kind] ||= []) << { slot: (day_hash[kind]&.size || 0), staff_id: staff.id }
           assigned_today.add(staff.id)
           track_work!(staff.id, date: date)
           after_assigned!(staff.id, date: date, kind: kind, month_end: @month_end)
@@ -215,7 +237,13 @@ module ShiftDrafts
       return false if h.blank?
 
       sid = staff_id.to_i
-      %w[day early late].any? { |k| h[k].to_i == sid }
+
+      day = h["day"]
+      return true if Array(day).any? { |x| x.to_i == sid }
+      return true if h["early"].to_i == sid
+
+      late = h["late"]
+      Array(late).any? { |x| x.to_i == sid }
     end
 
     def consecutive_designation_days_after(staff_id, date)

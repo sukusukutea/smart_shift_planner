@@ -55,7 +55,19 @@ module ShiftDrafts
 
         # ---- 早番/遅番/夜勤不足（ONなのに1人も入っていない）----
         list << "早番不足" if enabled?(:early, date) && blank_kind?(kinds_hash, "early")
-        list << "遅番不足" if enabled?(:late, date)   && blank_kind?(kinds_hash, "late")
+
+        if enabled?(:late, date)
+          required = @shift_month.late_slots_for(date).to_i
+          required = 1 if required <= 0
+          required = 2 if required >= 2
+
+          late_rows = (kinds_hash["late"] || kinds_hash[:late])
+          actual = Array(late_rows).size
+          lack = [required - actual, 0].max
+
+          list << "遅番:#{lack}不足" if lack > 0
+        end
+
         list << "夜勤不足" if enabled?(:night, date) && blank_kind?(kinds_hash, "night")
 
         alerts[date] = list
@@ -74,11 +86,18 @@ module ShiftDrafts
     def append_consecutive_work_alerts!(alerts)
       return if @dates.blank?
 
-      # designation を引ける形にする
       designations = @shift_month.shift_day_designations.where(date: @dates.first..@dates.last)
+
       designations_by_date = Hash.new { |h, k| h[k] = {} }
+
       designations.each do |d|
-        designations_by_date[d.date][d.shift_kind.to_s] = d.staff_id
+        kind = d.shift_kind.to_s
+
+        if kind == "day" || kind == "late"
+          (designations_by_date[d.date][kind] ||= []) << d.staff_id
+        else
+          designations_by_date[d.date][kind] = d.staff_id
+        end
       end
 
       staff_ids = @staff_by_id.keys.map(&:to_i)
@@ -146,8 +165,19 @@ module ShiftDrafts
     def designated_any_kind?(designations_by_date, staff_id, date)
       h = designations_by_date[date]
       return false if h.blank?
+
       sid = staff_id.to_i
-      %w[day early late night].any? { |k| h[k].to_i == sid }
+
+      day = h["day"]
+      return true if Array(day).any? { |x| x.to_i == sid }
+
+      late = h["late"]
+      return true if Array(late).any? { |x| x.to_i == sid }
+
+      return true if h["early"].to_i == sid
+      return true if h["night"].to_i == sid
+
+      false
     end
 
     def staff_label(staff_id)

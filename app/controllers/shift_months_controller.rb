@@ -147,6 +147,15 @@ class ShiftMonthsController < ApplicationController
     ActiveRecord::Base.transaction do
       setting = @shift_month.shift_day_settings.find_or_create_by!(date: date)
 
+      if ActiveModel::Type::Boolean.new.cast(enabled_hash["late"])
+        late_slots = params.dig(:day_setting, :late_slots).to_i
+        late_slots = 1 if late_slots <= 0
+        late_slots = 2 if late_slots >= 2
+        setting.update!(late_slots: late_slots)
+      else
+        setting.update!(late_slots: 1)
+      end
+
       ShiftMonth::SHIFT_KINDS.each do |kind|
         enabled = ActiveModel::Type::Boolean.new.cast(enabled_hash[kind.to_s])
         style = setting.shift_day_styles.find_or_initialize_by(shift_kind: kind)
@@ -257,16 +266,29 @@ class ShiftMonthsController < ApplicationController
       if kind == "day"
         # 日勤は複数人OK：同一日・同一職員の既存designationを消してから追加
         @shift_month.shift_day_designations.where(date: date, staff_id: sid).delete_all
-
         record = @shift_month.shift_day_designations.find_or_initialize_by(date: date, staff_id: sid)
         record.shift_kind = "day"
         record.save!
       else
-        # 早番/遅番/夜勤は1人だけ：同一日・同一kindを上書き
-        record = @shift_month.shift_day_designations.find_or_initialize_by(date: date, shift_kind: kind)
-        record.staff_id = sid
-        record.save!
-      end
+        if kind == "late"
+          limit = @shift_month.late_slots_for(date)
+
+          @shift_month.shift_day_designations.where(date: date, staff_id: sid).delete_all
+
+          existing = @shift_month.shift_day_designations.where(date: date, shift_kind: "late")
+          if existing.count >= limit
+            # 枠が埋まっているなら先頭(古い方)を上書き
+            existing.order(:id).first.update!(staff_id: sid)
+          else
+            @shift_month.shift_day_designations.create!(date: date, shift_kind: "late", staff_id: sid)
+          end
+        else
+          # 早/夜勤は1人だけ：同一日・同一kindを上書き
+          record = @shift_month.shift_day_designations.find_or_initialize_by(date: date, shift_kind: kind)
+          record.staff_id = sid
+          record.save!
+        end
+      end 
     end
 
     redirect_to settings_shift_month_path(@shift_month, tab: "daily", date: date.iso8601)
@@ -674,6 +696,8 @@ class ShiftMonthsController < ApplicationController
       kind = d.shift_kind.to_s
       if kind == "day"
         (@designations_by_date[d.date]["day"] ||= []) << d.staff_id
+      elsif kind == "late"
+        (@designations_by_date[d.date]["late"] ||= []) << d.staff_id
       else
         @designations_by_date[d.date][kind] = d.staff_id
       end
