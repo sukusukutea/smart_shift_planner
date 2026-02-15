@@ -260,6 +260,7 @@
                                       1,
                                       @enabled_map[kind] == true,
                                       class: "form-check-input",
+                                      id: ("toggle-late" if kind == :late),
                                       data: (kind == :day ? { action: "change->daily#toggleDayReq" } : {}) %>
                   </div>
                 </div>
@@ -303,6 +304,22 @@
                                             class: "form-control form-control-sm text-center py-0 px-1",
                                             style: "width:44px; height:25px; min-height:25px; padding-top:0; padding-bottom:0; line-height:1; font-size:13px; box-sizing:border-box;" %>
                     </div>
+                  </div>
+                </div>
+              <% end %>
+
+              <% if kind == :late %>
+                <% late_enabled = (@enabled_map[:late] == true) %>
+                <div id="late-slots-box" class="mt-1" style="<%= late_enabled ? "" : "display:none;" %>">
+                  <div class="d-flex align-items-center gap-2" style="white-space: nowrap;">
+                    <span class="text-muted" style="font-size: 12px; line-height: 1;">人数</span>
+                    <%= number_field_tag "day_setting[late_slots]",
+                                         @shift_month.late_slots_for(@selected_date),
+                                         min: 1,
+                                         max: 2,
+                                         class: "form-control form-control-sm text-center py-0 px-1",
+                                         style: "width:44px; height:25px; min-height:25px; padding-top:0; padding-bottom:0; line-height:1; font-size:13px; box-sizing:border-box;" %>
+                    <span class="small text-muted">名(1~2)</span>
                   </div>
                 </div>
               <% end %>
@@ -416,4 +433,15 @@
     document.getElementById("btn-holiday").classList.toggle("active", tabName === "holiday");
     document.getElementById("btn-daily").classList.toggle("active", tabName === "daily");
   }
+</script>
+
+<script>
+  document.addEventListener("turbo:load", () => {
+    const toggle = document.getElementById("toggle-late");
+    const box = document.getElementById("late-slots-box");
+    if (!toggle || !box) return;
+    const sync = () => { box.style.display = toggle.checked ? "block" : "none"; };
+    toggle.addEventListener("change", sync);
+    sync();
+  });
 </script>

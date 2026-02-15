@@ -220,4 +220,14 @@ class ShiftMonth < ApplicationRecord
       cook:  skills[:cook].to_i
     }
   end
+
+  def late_slots_for(date)
+    setting = shift_day_settings.find_by(date: date)
+    value   = setting&.late_slots.to_i
+
+    return 1 if value <= 0
+    return 2 if value >= 2
+
+    value
+  end
 end
