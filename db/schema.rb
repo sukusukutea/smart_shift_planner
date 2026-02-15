@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_28_082017) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_12_121523) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -168,6 +168,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_28_082017) do
     t.index ["staff_id"], name: "index_staff_holiday_requests_on_staff_id"
   end
 
+  create_table "staff_unworkable_wdays", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "staff_id", null: false
+    t.datetime "updated_at", null: false
+    t.integer "wday", null: false
+    t.index ["staff_id", "wday"], name: "index_staff_unworkable_wdays_on_staff_id_and_wday", unique: true
+    t.index ["staff_id"], name: "index_staff_unworkable_wdays_on_staff_id"
+  end
+
   create_table "staff_workable_wdays", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.bigint "staff_id", null: false
@@ -179,6 +188,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_28_082017) do
 
   create_table "staffs", force: :cascade do |t|
     t.boolean "active", default: true, null: false
+    t.integer "assignment_policy", default: 0, null: false
     t.boolean "can_cook", default: false, null: false
     t.boolean "can_day", default: false, null: false
     t.boolean "can_drive", default: false, null: false
@@ -196,6 +206,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_28_082017) do
     t.bigint "user_id", null: false
     t.integer "workday_constraint", default: 0, null: false
     t.index ["active"], name: "index_staffs_on_active"
+    t.index ["assignment_policy"], name: "index_staffs_on_assignment_policy"
     t.index ["occupation_id"], name: "index_staffs_on_occupation_id"
     t.index ["user_id"], name: "index_staffs_on_user_id"
   end
@@ -231,6 +242,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_28_082017) do
   add_foreign_key "shift_months", "users"
   add_foreign_key "staff_holiday_requests", "shift_months"
   add_foreign_key "staff_holiday_requests", "staffs"
+  add_foreign_key "staff_unworkable_wdays", "staffs"
   add_foreign_key "staff_workable_wdays", "staffs"
   add_foreign_key "staffs", "occupations"
   add_foreign_key "staffs", "users"

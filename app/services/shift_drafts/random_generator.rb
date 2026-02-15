@@ -84,7 +84,7 @@ module ShiftDrafts
 
             fixed_staffs = scope
               .where(can_day: true)
-              .where(workday_constraint: :fixed)
+              .where(assignment_policy: :required)
               .left_joins(:staff_workable_wdays)
               .where(staff_workable_wdays: { wday: ShiftMonth.ui_wday(date) })
               .where.not(id: holiday_ids + forced_off_ids)
@@ -188,16 +188,25 @@ module ShiftDrafts
 
     def apply_workday_constraint(scope, date:)
       wday = ShiftMonth.ui_wday(date)
-      scope.left_joins(:staff_workable_wdays)
-           .where(
-             "(staffs.workday_constraint = :free)
-              OR
-              (staffs.workday_constraint = :fixed
-                AND staff_workable_wdays.wday = :wday)",
-             wday: wday,
-             free: Staff.workday_constraints[:free],
-             fixed: Staff.workday_constraints[:fixed]
-           )
+
+      scope
+        .left_joins(:staff_workable_wdays)
+        .joins(<<~SQL.squish)
+          LEFT OUTER JOIN staff_unworkable_wdays
+            ON staff_unworkable_wdays.staff_id = staffs.id
+           AND staff_unworkable_wdays.wday = #{ActiveRecord::Base.connection.quote(wday)}
+        SQL
+        .where(
+          "(staffs.assignment_policy = :candidate
+              AND staff_unworkable_wdays.wday IS NULL)
+            OR
+            (staffs.assignment_policy = :required
+              AND staff_workable_wdays.wday = :wday)", # staff_unworkable_wdays.wday IS NULLは「その曜日がNG登録されていない人だけを通す」
+          wday: wday,
+          candidate: Staff.assignment_policies[:candidate],
+          required:  Staff.assignment_policies[:required]
+        )
+        .distinct
     end
 
     # そのstaffがその日に「日勤系」で手動指定されているか？
@@ -262,7 +271,7 @@ module ShiftDrafts
         end
       end
 
-      if kind == :day && date.present?
+      if date.present? && [:day, :early, :late].include?(kind)
         scope = apply_workday_constraint(scope, date: date)
       end
 
