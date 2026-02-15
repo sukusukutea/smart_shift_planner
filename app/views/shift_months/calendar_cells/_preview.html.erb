@@ -202,9 +202,9 @@
         <% end %>
       <% end %>
 
-      <% if (night_sid.to_i <= 0) && (night_off_sid.to_i > 0) %>
+      <% if night_off_sid.to_i > 0 %>
         <% off_staff = staff_by_id[night_off_sid.to_i] %>
-        <% if off_staff && row_key_for(off_staff) == row_key %>
+        <% if off_staff && row_key_for(off_staff) == row_key && night_off_sid.to_i != night_sid.to_i %>
           <div class="small"><%= off_staff.last_name %>(明け)</div>
         <% end %>
       <% end %>
