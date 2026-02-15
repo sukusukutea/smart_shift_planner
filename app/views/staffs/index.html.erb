@@ -78,10 +78,17 @@
                   </td>
                   <td><%= staff.occupation&.name || "未設定" %></td>
                   <td class="text-center" style="white-space: nowrap;">
+                    <% wdays = %w[月 火 水 木 金 土 日] %>
+
                     <% if staff.workday_constraint == "free" %>
-                      <span class="text-muted">-</span>
+                      <% ng = staff.staff_unworkable_wdays.map(&:wday).sort %>
+                      <span class="text-muted">
+                        -
+                        <% if ng.any? %>
+                          (<%= ng.map { |i| "#{wdays[i]}" }.join %>✖︎)
+                        <% end %>
+                      </span>
                     <% else %>
-                      <% wdays = %w[月 火 水 木 金 土 日] %>
                       <% selected = staff.staff_workable_wdays.map(&:wday).sort %>
                       <span><%= selected.map { |i| wdays[i] }.join %></span> 
                     <% end %>

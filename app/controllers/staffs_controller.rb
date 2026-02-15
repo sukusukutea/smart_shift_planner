@@ -4,7 +4,7 @@ class StaffsController < ApplicationController
   before_action :set_occupations, only: [:new, :create, :edit, :update]
 
   def index
-    @staffs = current_user.staffs.includes(:occupation, :staff_workable_wdays).order(:last_name_kana, :first_name_kana) # orderはカナ順の表示
+    @staffs = current_user.staffs.includes(:occupation, :staff_workable_wdays, :staff_unworkable_wdays).order(:last_name_kana, :first_name_kana) # orderはカナ順の表示
     @used_staff_ids = 
       ShiftDayAssignment.where(staff_id: @staffs.select(:id))
                         .distinct
