@@ -1,0 +1,12 @@
+<%# locals: msgs: %>
+
+<% if msgs.any? %>
+  <div class="d-flex flex-wrap gap-1 small">
+    <% msgs.each do |msg| %>
+      <% badge_class = alert_badge_class(msg) %>
+      <span class="badge rounded-pill <%= badge_class %>"><%= msg %></span>
+    <% end %>
+  </div>
+<% else %>
+  <div class="text-muted small">-</div>
+<% end %>
