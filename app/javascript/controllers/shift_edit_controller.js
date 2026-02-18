@@ -102,6 +102,13 @@ export default class extends Controller {
         const box = document.getElementById("draft-sidebar")
         if (box) box.innerHTML = data.stats_html
       }
+
+      if (data.alerts_html_by_date) {
+        Object.entries(data.alerts_html_by_date).forEach(([dateStr, html]) => {
+          const el = document.getElementById(`alert-cell-${dateStr}`)
+          if (el) el.innerHTML = html
+        })
+      }
     } catch (_e) {
       if (display) {
         display.classList.add("is-save-error")

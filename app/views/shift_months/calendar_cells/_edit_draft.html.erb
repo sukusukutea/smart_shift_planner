@@ -33,17 +33,9 @@
               holiday_requests_by_date: holiday_requests_by_date,
               designations_by_date: designations_by_date
             ) %>
-
-  <% if msgs.any? %>
-    <div class="d-flex flex-wrap gap-1 small">
-      <% msgs.each do |msg| %>
-        <% badge_class = alert_badge_class(msg) %>
-        <span class="badge rounded-pill <%= badge_class %>"><%= msg %></span>
-      <% end %>
-    </div>
-  <% else %>
-    <div class="text-muted small">-</div>
-  <% end %>
+  <div id="alert-cell-<%= date.iso8601 %>">
+    <%= render "shift_months/calendar_cells/alert_body", msgs: msgs %>
+  </div>
 <% else %>
   <div class="day-slots">
     <div class="slot slot-day">

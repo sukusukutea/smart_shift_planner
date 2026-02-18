@@ -473,7 +473,68 @@ class ShiftMonthsController < ApplicationController
       locals: { stats_rows: @stats_rows, shift_month: @shift_month }
     )
 
-    render json: { ok: true, stats_html: stats_html }
+    month_begin = Date.new(@shift_month.year, @shift_month.month, 1)
+    month_end   = month_begin.end_of_month
+    calendar_begin = month_begin.beginning_of_week(:monday)
+    calendar_end   = month_end.end_of_week(:monday)
+    dates = (calendar_begin..calendar_end).to_a
+
+    enabled_maps = @shift_month.enabled_map_for_range(dates)
+    required_by_date = {}
+    dates.each do |d|
+      required_by_date[d] = @shift_month.required_counts_for(d, shift_kind: :day)
+    end
+
+    alerts_by_date = ShiftDrafts::AlertsBuilder.new(
+      dates: dates,
+      draft: @draft,
+      staff_by_id: @staff_by_id,
+      required_by_date: required_by_date,
+      enabled_by_date: {
+        day: enabled_maps[:day],
+        early: enabled_maps[:early],
+        late: enabled_maps[:late],
+        night: enabled_maps[:night]
+      },
+      shift_month: @shift_month
+    ).call
+
+    holiday_requests_by_date =
+      @shift_month.staff_holiday_requests
+                  .includes(:staff)
+                  .where(date: calendar_begin..calendar_end)
+                  .group_by(&:date)
+
+    designations = @shift_month.shift_day_designations.where(date: month_begin..month_end)
+    designations_by_date = Hash.new { |h, k| h[k] = {} }
+    designations.each do |d|
+      kind = d.shift_kind.to_s
+      if kind == "day" || kind == "late"
+        (designations_by_date[d.date][kind] ||= []) << d.staff_id
+      else
+        designations_by_date[d.date][kind] = d.staff_id
+      end
+    end
+
+    alerts_html_by_date = {}
+    dates.each do |d|
+      base_msgs = Array(alerts_by_date[d])
+      msgs = helpers.augment_alert_messages_for_night_conflicts(
+        base_msgs: base_msgs,
+        draft: @draft,
+        date: d,
+        holiday_requests_by_date: holiday_requests_by_date,
+        designations_by_date: designations_by_date
+      )
+
+      alerts_html_by_date[d.iso8601] = render_to_string(
+        partial: "shift_months/calendar_cells/alert_body",
+        formats: [:html],
+        locals: { msgs: msgs }
+      )
+    end
+
+    render json: { ok: true, stats_html: stats_html, alerts_html_by_date: alerts_html_by_date }
   rescue ActionController::ParameterMissing
     render json: { ok: false, error: "param missing" }, status: :unprocessable_entity
   rescue ArgumentError
