@@ -21,3 +21,6 @@ application.register("daily", DailyController)
 
 import ShiftEditController from "./shift_edit_controller"
 application.register("shift-edit", ShiftEditController)
+
+import NightPickerController from "./night_picker_controller"
+application.register("night-picker", NightPickerController)

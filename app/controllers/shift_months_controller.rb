@@ -419,30 +419,82 @@ class ShiftMonthsController < ApplicationController
     end
 
     date  = Date.iso8601(params.require(:date))
-    staff_id = params.require(:staff_id).to_i
     kind_str = params.require(:kind).to_s
+    staff_id = params.require(:staff_id).to_i
 
-    if staff_id <= 0
-      render json: { ok: false, error: "staff_id is invalid" }, status: :unprocessable_entity
-      return
-    end
-
-    allowed = %w[day early late off]
+    allowed = %w[day early late night off]
     unless allowed.include?(kind_str)
       render json: { ok: false, error: "kind is invalid" }, status: :unprocessable_entity
       return
     end
 
-    editable_kinds = %i[day early late]
+    if kind_str != "off" && staff_id <= 0
+      render json: { ok: false, error: "staff_id is invalid" }, status: :unprocessable_entity
+      return
+    end
+
+    editable_kinds = %i[day early late night]
+
+    month_begin = Date.new(@shift_month.year, @shift_month.month, 1)
+    month_end   = month_begin.end_of_month
+    calendar_begin = month_begin.beginning_of_week(:monday)
+    calendar_end   = month_end.end_of_week(:monday)
+
+    third_day = nil
+    affected_days = []
 
     ShiftDayAssignment.transaction do
-      # 同一日・同一職員の「日勤側」の割当を消す
-      scope.where(date: date, staff_id: staff_id, shift_kind: editable_kinds).delete_all
+      if kind_str == "night"
+        # 夜勤は「その日1枠」扱い：誰であっても一旦消してから入れ直す（A→B置換対応）
+        scope.where(date: date, shift_kind: :night).delete_all
+        scope.where(date: date, staff_id: staff_id, shift_kind: %i[day early late]).delete_all
+
+        next_day = date + 1
+        scope.where(date: next_day, staff_id: staff_id, shift_kind: %i[day early late]).delete_all
+      elsif kind_str == "off"
+        # 「夜勤なし」はstaff_idは0で来るため、当日nightに入っている職員をDBから拾う
+        night_row = scope.find_by(date: date, shift_kind: :night)
+        night_staff_id = night_row&.staff_id
+
+        # nightを消す
+        scope.where(date: date, shift_kind: :night).delete_all
+
+        if night_staff_id.present?
+          # 当日・翌日・3日目（3日目は月内だけ）を「日勤」に入れ直す
+          d1 = date
+          d2 = date + 1
+          d3 = date + 2
+          days = [d1, d2]
+          days << d3 if d3 >= month_begin && d3 <= month_end
+
+          # affected_days を覚えておく（後でHTML差し替え対象に使う）
+          affected_days.concat(days)
+
+          days.each do |d|
+            # その職員のその日の勤務を一旦全部消す（day/early/late/night）
+            scope.where(date: d, staff_id: night_staff_id, shift_kind: %i[day early late night]).delete_all
+
+            # 日勤(day)を入れる
+            max_slot = scope.where(date: d, shift_kind: :day).maximum(:slot)
+            slot = max_slot.to_i + 1
+
+            @shift_month.shift_day_assignments.create!(
+              date: d,
+              shift_kind: :day,
+              staff_id: night_staff_id,
+              slot: slot,
+              source: :draft,
+              draft_token: token
+            )
+          end
+        end
+      else
+        # 日勤系は今のまま
+        scope.where(date: date, staff_id: staff_id, shift_kind: editable_kinds).delete_all
+      end
 
       if kind_str != "off"
         kind = kind_str.to_sym
-
-        # slot衝突回避：その日の同kindで末尾slotに差し込む
         max_slot = scope.where(date: date, shift_kind: kind).maximum(:slot)
         slot = max_slot.to_i + 1
 
@@ -455,11 +507,34 @@ class ShiftMonthsController < ApplicationController
           draft_token: token
         )
       end
+
+      # 夜勤を入れた時だけ：3日目を強制休みにする（その職員の勤務を削除）その職員の3日目勤務を全削除
+      if kind_str == "night"
+        third_day = date + 2
+        if third_day >= month_begin && third_day <= month_end
+          scope.where(
+            date: third_day,
+            staff_id: staff_id,
+            shift_kind: %i[day early late night]
+          ).delete_all
+        else
+          third_day = nil
+        end
+      end
     end
 
-    # --- 右サイドバー更新用に stats を作り直す ---
+    # 最新状態に再構築して、renderする
     @draft = build_draft_hash(scope)
     preload_staffs_for
+
+    dates = (calendar_begin..calendar_end).to_a
+
+    @unassigned_display_staffs_by_date =
+      ShiftDrafts::UnassignedDisplayStaffsBuilder.new(
+        dates: dates,
+        staff_by_id: @staff_by_id,
+        assignments_hash: @draft
+      ).call
 
     @stats_rows = ShiftDrafts::StatsBuilder.new(
       shift_month: @shift_month,
@@ -472,12 +547,6 @@ class ShiftMonthsController < ApplicationController
       formats: [:html],
       locals: { stats_rows: @stats_rows, shift_month: @shift_month }
     )
-
-    month_begin = Date.new(@shift_month.year, @shift_month.month, 1)
-    month_end   = month_begin.end_of_month
-    calendar_begin = month_begin.beginning_of_week(:monday)
-    calendar_end   = month_end.end_of_week(:monday)
-    dates = (calendar_begin..calendar_end).to_a
 
     enabled_maps = @shift_month.enabled_map_for_range(dates)
     required_by_date = {}
@@ -517,7 +586,7 @@ class ShiftMonthsController < ApplicationController
     end
 
     alerts_html_by_date = {}
-    dates.each do |d|
+    (month_begin..month_end).each do |d|
       base_msgs = Array(alerts_by_date[d])
       msgs = helpers.augment_alert_messages_for_night_conflicts(
         base_msgs: base_msgs,
@@ -534,7 +603,80 @@ class ShiftMonthsController < ApplicationController
       )
     end
 
-    render json: { ok: true, stats_html: stats_html, alerts_html_by_date: alerts_html_by_date }
+    # night-slot(当日＋翌日)
+    night_slots_html_by_dom_id = {}
+    target_row_keys = %i[nurse care]
+    target_dates = [date, date + 1]
+
+    target_row_keys.each do |rk|
+      target_dates.each do |d|
+        dom_id = "night-slot-#{rk}-#{d.iso8601}"
+
+        night_slots_html_by_dom_id[dom_id] = render_to_string(
+          partial: "shift_months/calendar_cells/night_slot",
+          formats: [:html],
+          locals: {
+            date: d,
+            in_month: (d >= month_begin && d <= month_end),
+            row_key: rk,
+            shift_month: @shift_month,
+            draft: @draft,
+            staff_by_id: @staff_by_id
+          }
+        )
+      end
+    end
+
+    # off(夜勤なし) のときは affected_days（=当日/翌日/3日目）を優先して差し替える
+    target_days =
+      if affected_days.present?
+        affected_days
+      else
+        days = [date, date + 1]
+        days << third_day if third_day
+        days
+      end
+
+    target_days = target_days.compact.uniq
+
+    # day-slot(当日＋翌日＋3日目)を差し替え
+    day_slots_html_by_dom_id = {}
+
+    target_row_keys.each do |rk|
+      target_days.each do |d|
+        dom_id = "day-slot-#{rk}-#{d.iso8601}"
+
+        day_slots_html_by_dom_id[dom_id] = render_to_string(
+          partial: "shift_months/calendar_cells/day_slot_body",
+          formats: [:html],
+          locals: {
+            date: d,
+            in_month: (d >= month_begin && d <= month_end),
+            row_key: rk,
+            shift_month: @shift_month,
+            day_enabled_by_date: @day_enabled_by_date,
+            early_enabled_by_date: @early_enabled_by_date,
+            late_enabled_by_date: @late_enabled_by_date,
+            required_by_date: @required_by_date,
+            required_skill_by_date: @required_skill_by_date,
+            alerts_by_date: @alerts_by_date,
+            draft: @draft,
+            staff_by_id: @staff_by_id,
+            unassigned_display_staffs_by_date: @unassigned_display_staffs_by_date,
+            holiday_requests_by_date: holiday_requests_by_date,
+            designations_by_date: designations_by_date
+          }
+        )
+      end
+    end
+
+    render json: {
+      ok: true,
+      stats_html: stats_html,
+      alerts_html_by_date: alerts_html_by_date,
+      night_slots_html_by_dom_id: night_slots_html_by_dom_id,
+      day_slots_html_by_dom_id: day_slots_html_by_dom_id
+    }
   rescue ActionController::ParameterMissing
     render json: { ok: false, error: "param missing" }, status: :unprocessable_entity
   rescue ArgumentError

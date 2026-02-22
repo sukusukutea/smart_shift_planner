@@ -38,135 +38,42 @@
   </div>
 <% else %>
   <div class="day-slots">
-    <div class="slot slot-day">
-    <% editable_row_keys = %i[nurse care care_mgr cook clerk] %>
-    <% if editable_row_keys.include?(row_key) && in_month %>
-      <%# 介護/ケアマネ/調理/事務：固定順名簿で「勤務 or 休み」を表示 %>
-      <% staffs_for_row = sorted_staffs_for_row(staff_by_id: staff_by_id, row_key: row_key) %>
-
-      <% assigned_kind_by_id = {} %>
-      <% { day: day_rows, early: early_rows, late: late_rows }.each do |kind_sym, rows| %>
-        <% Array(rows).each do |r| %>
-          <% sid = (r["staff_id"] || r[:staff_id]).to_i %>
-          <% assigned_kind_by_id[sid] = kind_sym if sid > 0 %>
-        <% end %>
-      <% end %>
-
-      <% staffs_for_row.each do |s| %>
-        <% kind = assigned_kind_by_id[s.id] %>
-        <% selected =
-            if kind == :day
-              "day"
-            elsif kind == :early
-              "early"
-            elsif kind == :late
-              "late"
-            else
-              "off"
-            end
-        %>
-
-        <% time_text =
-             if selected == "early"
-               "(730-1630)"
-             elsif selected == "late"
-               "(11-20)"
-             else
-               ""
-             end %>
-
-        <% off_text = (selected == "off") ? "(休)" : "" %>
-
-        <div class="shift-edit-row" data-controller="shift-edit">
-          <div class="shift-edit-display <%= (selected == "off") ? "is-off" : "" %>">
-            <span class="shift-edit-name"><%= s.last_name %><%= off_text %></span>
-            <% if time_text.present? %>
-              <span class="shift-edit-time"><%= time_text %></span>
-            <% end %>
-          </div>
-
-          <select
-            class="form-select form-select-sm shift-edit-select"
-            data-action="change->shift-edit#change"
-            data-staff-id="<%= s.id %>"
-            data-staff-name="<%= s.last_name %>"
-            data-update-url="<%= update_draft_assignment_shift_month_path(shift_month) %>"
-            data-date="<%= date.iso8601 %>"
-            data-occupation="<%= row_key %>">
-
-            <option value="day"   <%= "selected" if selected == "day"   %>><%= s.last_name %></option>
-            <option value="early" <%= "selected" if selected == "early" %>><%= s.last_name %>(730-1630)</option>
-            <option value="late"  <%= "selected" if selected == "late"  %>><%= s.last_name %>(11-20)</option>
-            <option value="off"   <%= "selected" if selected == "off"   %>><%= s.last_name %>(休)</option>
-          </select>
-        </div>
-      <% end %>
-    <% else %>
-      <%# 介護以外：現行の表示（割当のみ） %>
-      <% day_rows.each do |row| %>
-        <% sid = (row["staff_id"] || row[:staff_id]).to_i %>
-        <% staff = staff_by_id[sid] %>
-        <% next if staff.nil? || !staff.active? %>
-        <% if row_key_for(staff) == row_key %>
-          <div class="small"><%= staff.last_name %></div>
-        <% end %>
-      <% end %>
-
-      <%# 未割当(休み)表示：その月だけ %>
-      <% if in_month %>
-        <% unassigned_staffs = (unassigned_display_staffs_by_date && unassigned_display_staffs_by_date[date]) || [] %>
-        <% unassigned_staffs.each do |staff| %>
-          <% next if staff.nil? || !staff.active? %>
-          <% next if night_related_ids.include?(staff.id.to_i) %>
-          <% next unless row_key_for(staff) == row_key %>
-          <div class="small text-danger"><%= staff.last_name %>(休)</div>
-        <% end %>
-      <% end %>
-    <% end %>
-
-    <% if !(editable_row_keys.include?(row_key) && in_month) %>
-      <% early_rows.each do |row| %>
-        <% sid = (row["staff_id"] || row[:staff_id]).to_i %>
-        <% staff = staff_by_id[sid] %>
-        <% next if staff.nil? %>
-        <% if row_key_for(staff) == row_key %>
-          <div class="small shift-line">
-            <%= staff.last_name %><span class="shift-time">730-1630</span>
-          </div>
-        <% end %>
-      <% end %>
-
-      <% late_rows.each do |row| %>
-        <% sid = (row["staff_id"] || row[:staff_id]).to_i %>
-        <% staff = staff_by_id[sid] %>
-        <% next if staff.nil? %>
-        <% if row_key_for(staff) == row_key %>
-          <div class="small shift-line">
-            <%= staff.last_name %><span class="shift-time">11-20</span>
-          </div>
-        <% end %>
-      <% end %>
-    <% end %>
+    <div id="day-slot-<%= row_key %>-<%= date.iso8601 %>" class="slot slot-day">
+      <%= render "shift_months/calendar_cells/day_slot_body",
+        date: date,
+        in_month: in_month,
+        row_key: row_key,
+        shift_month: shift_month,
+        day_enabled_by_date: day_enabled_by_date,
+        early_enabled_by_date: early_enabled_by_date,
+        late_enabled_by_date: late_enabled_by_date,
+        required_by_date: required_by_date,
+        required_skill_by_date: required_skill_by_date,
+        alerts_by_date: alerts_by_date,
+        draft: draft,
+        staff_by_id: staff_by_id,
+        unassigned_display_staffs_by_date: unassigned_display_staffs_by_date,
+        holiday_requests_by_date: holiday_requests_by_date,
+        designations_by_date: designations_by_date
+      %>
     </div>
 
-    <div class="slot slot-night">
-      <% night_rows.each do |row| %>
-        <% sid = (row["staff_id"] || row[:staff_id]).to_i %>
-        <% staff = staff_by_id[sid] %>
-        <% next if staff.nil? %>
-        <% if row_key_for(staff) == row_key %>
-          <div class="small"><%= staff.last_name %></div>
-        <% end %>
+    <div
+      id="night-slot-<%= row_key %>-<%= date.iso8601 %>"
+      class="slot slot-night <%= (in_month && [:nurse, :care].include?(row_key)) ? "is-night-editable" : "" %>"
+      <% if in_month && [:nurse, :care].include?(row_key) %>
+        data-night-picker-date-value="<%= date.iso8601 %>"
+        data-night-picker-row-key-value="<%= row_key %>"
       <% end %>
-
-      <% if (night_sid.to_i <= 0) && (night_off_sid.to_i > 0) %>
-        <% off_staff = staff_by_id[night_off_sid.to_i] %>
-        <% if off_staff && row_key_for(off_staff) == row_key %>
-          <div class="small"><%= off_staff.last_name %>(明け)</div>
-        <% end %>
-      <% end %>
+    >
+      <%= render "shift_months/calendar_cells/night_slot",
+                date: date,
+                in_month: in_month,
+                row_key: row_key,
+                shift_month: shift_month,
+                draft: draft,
+                staff_by_id: staff_by_id %>
     </div>
-
     <div class="slot slot-stay"></div>
   </div>
 <% end %>

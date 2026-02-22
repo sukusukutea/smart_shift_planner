@@ -1,0 +1,53 @@
+<%# locals:
+  date:, in_month:, row_key:, shift_month:,
+  draft:, staff_by_id:
+%>
+
+<% ctx = shift_day_context(draft, date) %>
+<% night_rows = ctx[:night_rows] %>
+<% night_off_sid = ctx[:night_off_sid] %>
+
+<% night_rows.each do |row| %>
+  <% sid = (row["staff_id"] || row[:staff_id]).to_i %>
+  <% staff = staff_by_id[sid] %>
+  <% next if staff.nil? %>
+  <% if row_key_for(staff) == row_key %>
+    <div class="small"><%= staff.last_name %></div>
+  <% end %>
+<% end %>
+
+<%# 当月内だけ完結：月外セルでは明けを出さない %>
+<% if in_month && night_off_sid.to_i > 0 %>
+  <% off_staff = staff_by_id[night_off_sid.to_i] %>
+  <% if off_staff && row_key_for(off_staff) == row_key %>
+    <div class="small"><%= off_staff.last_name %>(明け)</div>
+  <% end %>
+<% end %>
+
+<% if in_month && [:nurse, :care].include?(row_key) %>
+  <div class="night-edit-row" data-controller="night-picker">
+    <div class="night-edit-display" data-night-picker-target="display">
+      <span class="night-edit-name" data-night-picker-target="name">夜勤を選択</span>
+    </div>
+
+    <select
+      class="form-select form-select-sm night-edit-select--overlay"
+      data-action="change->night-picker#change"
+      data-night-picker-target="select"
+      data-update-url="<%= update_draft_assignment_shift_month_path(shift_month) %>"
+      data-date="<%= date.iso8601 %>"
+    >
+      <option value="" disabled selected>選択</option>
+      <option value="0">夜勤なし</option>
+
+      <% staff_by_id.values
+          .select { |s| s&.active? }
+          .select { |s| row_key_for(s) == row_key }
+          .select { |s| s.respond_to?(:can_night) && s.can_night }
+          .sort_by { |s| [s.last_name_kana.to_s, s.first_name_kana.to_s, s.id.to_i] }
+          .each do |s| %>
+        <option value="<%= s.id %>"><%= s.last_name %></option>
+      <% end %>
+    </select>
+  </div>
+<% end %>
