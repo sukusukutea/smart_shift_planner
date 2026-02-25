@@ -16,7 +16,10 @@
       <% sorted_rows =
           stats_rows
             .select { |row| ( s = row[:staff]) && s.active? } 
-            .sort_by { |row| row[:staff].workday_constraint == "free" ? 0 : 1 }
+            .sort_by do |row|
+              c = row[:staff].workday_constraint.to_s
+              (c == "free" || c == "weekly") ? 0 : 1
+            end
       %>
       <% sorted_rows.each do |row| %>
         <tr class="<%= row[:staff].workday_constraint == 'fixed' ? 'fixed-staff-row' : '' %>">
@@ -24,7 +27,7 @@
           <% weekly_weeks = Array(row[:weekly_shortage_weeks]) %>
 
           <td class="<%= weekly_shortage ? 'bg-danger-subtle text-danger' : '' %>"
-              title="<%= weekly_shortage ? "週勤務が満たせていない週があります（不足: #{weekly_weeks.map { |n| "第#{n}週" }.join('、')}）" : '' %>">
+              title="<%= weekly_shortage ? "週勤務が未達成の週あり（不足: #{weekly_weeks.map { |n| "第#{n}週" }.join('、')}）" : '' %>">
             <%= row[:staff].last_name %> <%= row[:staff].first_name %>
           </td>
           <td><%= row[:day] %></td>
