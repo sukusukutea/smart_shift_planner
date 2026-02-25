@@ -20,7 +20,13 @@
       %>
       <% sorted_rows.each do |row| %>
         <tr class="<%= row[:staff].workday_constraint == 'fixed' ? 'fixed-staff-row' : '' %>">
-          <td><%= row[:staff].last_name %> <%= row[:staff].first_name %></td>
+          <% weekly_shortage = row[:weekly_shortage] %>
+          <% weekly_weeks = Array(row[:weekly_shortage_weeks]) %>
+
+          <td class="<%= weekly_shortage ? 'bg-danger-subtle text-danger' : '' %>"
+              title="<%= weekly_shortage ? "週勤務が満たせていない週があります（不足: #{weekly_weeks.map { |n| "第#{n}週" }.join('、')}）" : '' %>">
+            <%= row[:staff].last_name %> <%= row[:staff].first_name %>
+          </td>
           <td><%= row[:day] %></td>
           <td><%= row[:early] %></td>
           <td><%= row[:late] %></td>

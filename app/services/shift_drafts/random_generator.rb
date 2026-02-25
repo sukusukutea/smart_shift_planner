@@ -333,7 +333,7 @@ module ShiftDrafts
           :full # 最近働いていない人＋勤務日数を確認 優先順位①最近働いていない人②勤務日数が少ない人
         end
 
-      pick_by_priority(candidate_ids, date: date, priority_mode: priority_mode)
+      pick_by_priority(candidate_ids, date: date, priority_mode: priority_mode, kind: kind)
     end
 
     # 日勤スキルを未選定から追加で埋める。候補をDBから一括取得してshuffleし、Ruby側でpopしていく
@@ -458,40 +458,37 @@ module ShiftDrafts
       [worked, last]
     end
 
-    def pick_by_priority(candidate_ids, date:, priority_mode: :full)
+    def pick_by_priority(candidate_ids, date:, priority_mode: :full, kind: nil)
       return nil if candidate_ids.blank?
 
-      ids = sort_ids_by_priority(candidate_ids, date: date, priority_mode: priority_mode)
+      ids = sort_ids_by_priority(candidate_ids, date: date, priority_mode: priority_mode, kind: kind)
 
       @active_scope.find_by(id: ids.last)
     end
 
-    def sort_ids_by_priority(ids, date:, priority_mode: :full)
+    def sort_ids_by_priority(ids, date:, priority_mode: :full, kind: nil)
       Array(ids).sort_by do |sid|
         worked = @worked_days_by_staff[sid].to_i
 
-        weekly_boost = 0
-        if date.present?
-          staff = @staff_by_id[sid.to_i]
-          if staff&.workday_constraint == "weekly"
-            limit = staff.weekly_workdays.to_i
-            if limit > 0 && assigned_dayish_count_in_week(sid, date) < limit
-              weekly_boost = 1
-            end
-          end
+        week_kind = 0
+        week_day  = 0
+        if date.present? && [:early, :late].include?(kind)
+          week_kind = -assigned_kind_count_in_week(sid, date, kind)
+          week_day  = -assigned_kind_count_in_week(sid, date, :day)
         end
 
         case priority_mode
         when :worked_only # 純粋に勤務日数だけチェック
           [
-            weekly_boost,
+            week_kind,
             -worked, # 末尾が「勤務日数少ない人」にしたいので -worked(小→大で末尾が小さくなる)
             rand
           ]
         else # :full
           days_since = days_since_last_work(sid, date: date)
           [
-            weekly_boost,
+            week_kind,
+            week_day,
             days_since,
             -worked,
             rand                                # 同点揺らぎ
@@ -619,6 +616,18 @@ module ShiftDrafts
         next false if limit <= 0
 
         assigned_dayish_count_in_week(sid, date) >= limit
+      end
+    end
+
+    def assigned_kind_count_in_week(staff_id, date, kind)
+      tl = @timeline.instance_variable_get(:@timeline)&.[](staff_id.to_i)
+      return 0 if tl.blank?
+
+      week_begin = date.beginning_of_week(:monday)
+      week_end   = week_begin + 6
+
+      (week_begin..week_end).count do |d|
+        tl[d] == kind
       end
     end
   end

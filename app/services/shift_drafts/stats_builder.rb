@@ -9,12 +9,16 @@ module ShiftDrafts
     def call
       month_begin = Date.new(@shift_month.year, @shift_month.month, 1)
       month_end   = month_begin.end_of_month
-      date_keys = (month_begin..month_end).map(&:iso8601)
+      dates = (month_begin..month_end).to_a
+      date_keys = dates.map(&:iso8601)
       staff_ids = @staff_by_id.keys
 
       counts = Hash.new { |h, k| h[k] = Hash.new(0) } # counts[staff_id][:day] += 1 など kindの回数
 
+      dayish_by_staff_and_date = Hash.new { |h, k| h[k] = {} } # [staff_id][Date] = true
+
       date_keys.each do |dkey|
+        date = Date.iso8601(dkey)
         kinds = @draft[dkey] || {}
 
         kinds.each do |kind_sym_or_str, rows|
@@ -25,7 +29,12 @@ module ShiftDrafts
             staff_id = extract_staff_id(row)
             next if staff_id.nil?
 
-            counts[staff_id.to_i][kind] += 1
+            sid = staff_id.to_i
+            counts[sid][kind] += 1
+
+            if [:day, :early, :late].include?(kind)
+              dayish_by_staff_and_date[sid][date] = true
+            end
           end
         end
       end
@@ -66,6 +75,8 @@ module ShiftDrafts
         holiday_count = total_days - worked_days[sid]
         is_free = staff.respond_to?(:workday_constraint) && staff.workday_constraint == "free"
         holiday_shortage = is_free && required_holidays > 0 && holiday_count.to_i < required_holidays
+        weekly_shortage_weeks = weekly_shortage_weeks_for(staff, dates, dayish_by_staff_and_date)
+        weekly_shortage = weekly_shortage_weeks.any?
 
         {
           staff: staff,
@@ -74,7 +85,9 @@ module ShiftDrafts
           late:  counts[sid][:late],
           night: counts[sid][:night],
           holiday: holiday_count,
-          holiday_shortage: holiday_shortage
+          holiday_shortage: holiday_shortage,
+          weekly_shortage: weekly_shortage,
+          weekly_shortage_weeks: weekly_shortage_weeks
         }
       }
     end
@@ -90,6 +103,45 @@ module ShiftDrafts
       else
         row.present? ? row.to_i : nil
       end
+    end
+
+    def week_ranges_in_month(dates)
+      return [] if dates.blank?
+
+      first = dates.first.beginning_of_week(:monday)
+      last  = dates.last.end_of_week(:monday)
+
+      ranges = []
+      d = first
+      while d <= last
+        wb = d
+        we = d + 6
+        ranges << (wb..we)
+        d += 7
+      end
+      ranges
+    end
+
+    def weekly_shortage_weeks_for(staff, dates, dayish_by_staff_and_date)
+      return [] unless staff&.workday_constraint.to_s == "weekly"
+
+      limit = staff.weekly_workdays.to_i
+      return [] if limit <= 0
+
+      sid = staff.id.to_i
+      weeks = week_ranges_in_month(dates)
+
+      shortage = []
+      weeks.each_with_index do |range, idx|
+        # 月外の日は除外（= 月の中の該当日だけ数える）
+        in_month_dates = dates.select { |d| range.cover?(d) }
+        next if in_month_dates.empty?
+
+        actual = in_month_dates.count { |d| dayish_by_staff_and_date.dig(sid, d) == true }
+        shortage << (idx + 1) if actual < limit
+      end
+
+      shortage
     end
   end
 end
