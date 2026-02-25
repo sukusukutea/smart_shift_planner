@@ -69,22 +69,23 @@ module ShiftDrafts
           sid = designations_by_date.dig(date, kind.to_s)
           next if sid.blank?
 
-          if kind == :late || kind == :day
-            Array(sid).each do |staff_id|
-              staff_id = staff_id.to_i
-              rows = (day_hash[kind] ||= [])
-              rows << { slot: rows.size, staff_id: staff_id }
-              assigned_today.add(staff_id)
-              track_work!(staff_id, date: date)
-              after_assigned!(staff_id, date: date, kind: kind, month_end: @month_end)
+          rows = (day_hash[kind] ||= [])
+
+          staff_ids =
+            if kind == :late || kind == :day
+              Array(sid)
+            else
+              [sid]
             end
-          else
-            staff_id = sid.to_i
-            rows = (day_hash[kind] ||= [])
-            rows << { slot: rows.size, staff_id: staff_id }
-            assigned_today.add(staff_id)
-            track_work!(staff_id, date: date)
-            after_assigned!(staff_id, date: date, kind: kind, month_end: @month_end)
+
+          staff_ids.each do |staff_id|
+            add_row_and_track!(
+              rows: rows,
+              staff_id: staff_id,
+              assigned_today: assigned_today,
+              date: date,
+              kind: kind
+            )
           end
         end
 
@@ -109,22 +110,16 @@ module ShiftDrafts
             slot = day_rows.size
 
             fixed_staffs.each do |staff|
-              occ_name = staff.occupation.name
-
-              if occ_name.include?("事務") || occ_name.include?("管理栄養士")
-                day_rows << { slot: slot, staff_id: staff.id }
-                assigned_today.add(staff.id)
-                track_work!(staff.id, date: date)
-                slot += 1
-                next
-              end
-
-              day_rows << { slot: slot, staff_id: staff.id }
-              assigned_today.add(staff.id)
-              track_work!(staff.id, date: date)
-              after_assigned!(staff.id, date: date, kind: :day, month_end: @month_end)
-              slot += 1
+              add_row_and_track!(
+                rows: day_rows,
+                staff_id: staff.id,
+                assigned_today: assigned_today,
+                date: date,
+                kind: :day
+              )
             end
+
+            slot = day_rows.size
 
             slot = fill_day_skills!(
               day_rows: day_rows,
@@ -173,10 +168,15 @@ module ShiftDrafts
 
             break if staff.nil?
 
-            (day_hash[kind] ||= []) << { slot: (day_hash[kind]&.size || 0), staff_id: staff.id }
-            assigned_today.add(staff.id)
-            track_work!(staff.id, date: date)
-            after_assigned!(staff.id, date: date, kind: kind, month_end: @month_end)
+            rows = (day_hash[kind] ||= [])
+
+            add_row_and_track!(
+              rows: rows,
+              staff_id: staff.id,
+              assigned_today: assigned_today,
+              date: date,
+              kind: kind
+            )
           end
         end
 
@@ -335,10 +335,15 @@ module ShiftDrafts
       drive_ids = day_skill_candidate_ids(date: date, exclude_ids: base_exclude, skill: :drive)
       while need_drive > 0 && drive_ids.any?
         sid = drive_ids.pop
-        day_rows << { slot: slot, staff_id: sid }
-        assigned_today.add(sid)
-        track_work!(sid, date: date)
-        after_assigned!(sid, date: date, kind: :day, month_end: @month_end)
+
+        add_row_and_track!(
+          rows: day_rows,
+          staff_id: sid,
+          assigned_today: assigned_today,
+          date: date,
+          kind: :day
+        )
+
         slot += 1
         need_drive -= 1
       end
@@ -348,10 +353,15 @@ module ShiftDrafts
       cook_ids = day_skill_candidate_ids(date: date, exclude_ids: base_exclude, skill: :cook)
       while need_cook > 0 && cook_ids.any?
         sid = cook_ids.pop
-        day_rows << { slot: slot, staff_id: sid }
-        assigned_today.add(sid)
-        track_work!(sid, date: date)
-        after_assigned!(sid, date: date, kind: :day, month_end: @month_end)
+
+        add_row_and_track!(
+          rows: day_rows,
+          staff_id: sid,
+          assigned_today: assigned_today,
+          date: date,
+          kind: :day
+        )
+
         slot += 1
         need_cook -= 1
       end
@@ -385,10 +395,15 @@ module ShiftDrafts
       nurse_ids = day_role_candidate_ids(date: date, exclude_ids: base_exclude, role: :nurse)
       while need_nurse > 0 && nurse_ids.any?
         sid = nurse_ids.pop
-        day_rows << { slot: slot, staff_id: sid }
-        assigned_today.add(sid)
-        track_work!(sid, date: date)
-        after_assigned!(sid, date: date, kind: :day, month_end: @month_end)
+
+        add_row_and_track!(
+          rows: day_rows,
+          staff_id: sid,
+          assigned_today: assigned_today,
+          date: date,
+          kind: :day
+        )
+
         slot += 1
         need_nurse -= 1
       end
@@ -398,10 +413,15 @@ module ShiftDrafts
       care_ids = day_role_candidate_ids(date: date, exclude_ids: base_exclude, role: :care)
       while need_care > 0 && care_ids.any?
         sid = care_ids.pop
-        day_rows << { slot: slot, staff_id: sid }
-        assigned_today.add(sid)
-        track_work!(sid, date: date)
-        after_assigned!(sid, date: date, kind: :day, month_end: @month_end)
+
+        add_row_and_track!(
+          rows: day_rows,
+          staff_id: sid,
+          assigned_today: assigned_today,
+          date: date,
+          kind: :day
+        )
+
         slot += 1
         need_care -= 1
       end
@@ -447,8 +467,25 @@ module ShiftDrafts
     end
 
     def sort_ids_by_priority(ids, date:, priority_mode: :full, kind: nil)
+      care_exists  = false
+      nurse_exists = false
+
+      if date.present? && [:early, :late].include?(kind)
+        Array(ids).each do |id|
+          name = @staff_by_id[id.to_i]&.occupation&.name.to_s
+          care_exists  ||= name.include?("介護")
+          nurse_exists ||= name.include?("看護")
+        end
+      end
+
       Array(ids).sort_by do |sid|
         worked = @worked_days_by_staff[sid].to_i
+
+        role_bias = 0
+        if date.present? && [:early, :late].include?(kind) && care_exists && nurse_exists
+          name = @staff_by_id[sid.to_i]&.occupation&.name.to_s
+          role_bias = name.include?("介護") ? 1 : 0
+        end
 
         week_kind = 0
         week_day  = 0
@@ -457,9 +494,16 @@ module ShiftDrafts
           week_day  = -assigned_kind_count_in_week(sid, date, :day)
         end
 
+        wday_kind_bias = 0
+        if date.present? && [:early, :late].include?(kind)
+          wday_kind_bias = -assigned_kind_count_on_wday_in_month(sid, date.wday, kind)
+        end
+
         case priority_mode
         when :worked_only # 純粋に勤務日数だけチェック
           [
+            role_bias,
+            wday_kind_bias,
             week_kind,
             -worked, # 末尾が「勤務日数少ない人」にしたいので -worked(小→大で末尾が小さくなる)
             rand
@@ -467,6 +511,8 @@ module ShiftDrafts
         else # :full
           days_since = days_since_last_work(sid, date: date)
           [
+            role_bias,
+            wday_kind_bias,
             week_kind,
             week_day,
             days_since,
@@ -608,6 +654,23 @@ module ShiftDrafts
 
       (week_begin..week_end).count do |d|
         tl[d] == kind
+      end
+    end
+
+    def add_row_and_track!(rows:, staff_id:, assigned_today:, date:, kind:)
+      sid = staff_id.to_i
+      rows << { slot: rows.size, staff_id: sid }
+      assigned_today.add(sid)
+      track_work!(sid, date: date)
+      after_assigned!(sid, date: date, kind: kind, month_end: @month_end)
+    end
+
+    def assigned_kind_count_on_wday_in_month(staff_id, target_wday, kind)
+      tl = @timeline.instance_variable_get(:@timeline)&.[](staff_id.to_i)
+      return 0 if tl.blank?
+
+      tl.count do |d, k|
+        d.respond_to?(:wday) && d.wday == target_wday && k == kind
       end
     end
   end
