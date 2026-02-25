@@ -13,6 +13,7 @@ ja:
         first_name: "名"
         last_name_kana: "姓（せい）"
         first_name_kana: "名（めい）"
+        weekly_workdays: "週の勤務日数"
       shift_month:
         year: "年"
         month: "月"
@@ -44,3 +45,6 @@ ja:
               blank: "を入力してください"
             first_name_kana:
               blank: "を入力してください"
+            weekly_workdays:
+              blank: "を入力してください"
+              inclusion: "は1〜7の範囲で入力してください"

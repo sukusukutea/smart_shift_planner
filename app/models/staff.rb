@@ -6,7 +6,7 @@ class Staff < ApplicationRecord
   has_many :shift_day_designations, dependent: :restrict_with_exception
   has_many :staff_unworkable_wdays, dependent: :destroy
 
-  enum :workday_constraint, { free: 0, fixed: 1 }
+  enum :workday_constraint, { free: 0, fixed: 1, weekly: 2 }
   enum :assignment_policy, { candidate: 0, required: 1 }
 
   def ng_wday?(date)
@@ -33,4 +33,12 @@ class Staff < ApplicationRecord
               with: /\A[ぁ-んー]+\z/,
               message: "はひらがなで入力してください"
             }
+
+  validates :weekly_workdays,
+            presence: true,
+            inclusion: { in: 1..7 },
+            if: :weekly?
+  validates :weekly_workdays,
+            absence: true,
+            unless: :weekly?
 end

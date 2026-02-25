@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_15_012359) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_22_105242) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -205,6 +205,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_15_012359) do
     t.bigint "occupation_id", null: false
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
+    t.integer "weekly_workdays"
     t.integer "workday_constraint", default: 0, null: false
     t.index ["active"], name: "index_staffs_on_active"
     t.index ["assignment_policy"], name: "index_staffs_on_assignment_policy"
