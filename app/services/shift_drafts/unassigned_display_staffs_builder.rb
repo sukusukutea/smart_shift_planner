@@ -58,7 +58,7 @@ module ShiftDrafts
 
       if occ_name.include?("看護")
         constraint = staff.workday_constraint.to_s
-        return true if constraint == "free"
+        return true if constraint == "free" || constraint == "weekly"
 
         if constraint == "fixed"
           wday = ShiftMonth.ui_wday(date)
