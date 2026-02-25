@@ -17,12 +17,20 @@ class StaffsController < ApplicationController
   end
 
   def create
-    @staff = current_user.staffs.build(staff_params) # フォームから送られてきた情報を@staffに入れる
+    @staff = current_user.staffs.build(staff_params)
 
-    if @staff.save
-      save_wdays!(@staff)
-      redirect_to staffs_path, notice: "職員を登録しました。"
-    else
+    ActiveRecord::Base.transaction do
+      normalize_weekly_workdays!(@staff)
+
+      if @staff.save
+        save_wdays!(@staff)
+        redirect_to staffs_path, notice: "職員を登録しました。"
+      else
+        raise ActiveRecord::Rollback
+      end
+    end
+
+    unless @staff.persisted?
       flash.now[:alert] = "登録に失敗しました。入力内容を確認してください。"
       render :new, status: :unprocessable_entity
     end
@@ -32,8 +40,21 @@ class StaffsController < ApplicationController
   end
 
   def update
-    if @staff.update(staff_params)
-      save_wdays!(@staff)
+    @staff.assign_attributes(staff_params)
+
+    success = false
+    ActiveRecord::Base.transaction do
+      normalize_weekly_workdays!(@staff)
+
+      if @staff.save
+        save_wdays!(@staff)
+        success = true
+      else
+        raise ActiveRecord::Rollback
+      end
+    end
+
+    if success
       redirect_to staffs_path, notice: "職員情報を更新しました"
     else
       flash.now[:alert] = "更新に失敗しました。入力内容を確認してください。"
@@ -85,18 +106,30 @@ class StaffsController < ApplicationController
       :can_visit, :can_drive, :can_cook,
       :workday_constraint,
       :assignment_policy,
+      :weekly_workdays
     )
+  end
+
+  def normalize_weekly_workdays!(staff)
+  staff.weekly_workdays = nil unless staff.workday_constraint == "weekly"
   end
 
   def save_wdays!(staff)
     workable   = Array(params.dig(:staff, :workable_wdays)).map(&:to_i).uniq
     unworkable = Array(params.dig(:staff, :unworkable_wdays)).map(&:to_i).uniq
 
-    if staff.workday_constraint == "fixed"
+    case staff.workday_constraint
+    when "fixed"
       staff.staff_unworkable_wdays.delete_all
       staff.staff_workable_wdays.delete_all
       workable.each { |wday| staff.staff_workable_wdays.create!(wday: wday) }
-    else
+
+    when "weekly"
+      staff.staff_workable_wdays.delete_all
+      staff.staff_unworkable_wdays.delete_all
+      unworkable.each { |wday| staff.staff_unworkable_wdays.create!(wday: wday) }
+
+    else # "free"
       staff.staff_workable_wdays.delete_all
       staff.staff_unworkable_wdays.delete_all
       unworkable.each { |wday| staff.staff_unworkable_wdays.create!(wday: wday) }

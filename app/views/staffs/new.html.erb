@@ -72,7 +72,7 @@
               <div class="mb-3">
                 <div class="d-flex align-items-start gap-4">
                   <div class="form-label fw-bold mb-0" style="min-width: 140px;"> 
-                    出勤日
+                    出勤形態
                   </div>
 
                   <div class="d-flex flex-column gap-2">
@@ -84,8 +84,9 @@
                     <% fixed = (@staff.workday_constraint == "fixed") %>
                     <% free  = !fixed %>
 
-                    <div class="d-flex align-items-start flex-wrap gap-3">
-                      <label class="d-flex align-items-center gap-1 mb-0 mt-1">
+                    <div id="free-group" class="d-flex align-items-start flex-wrap gap-3">
+                      <label class="d-flex align-items-center gap-1 mb-0 mt-1"
+                             style="min-width: 100px;">
                         <%= f.radio_button :workday_constraint, "free",
                             checked: (@staff.workday_constraint.presence || "free") == "free",
                             data: { action: "change->workdayConstraint" } %>
@@ -96,7 +97,7 @@
                         id="unworkable-wdays-fieldset"
                         class="mt-2 workable-wdays <%= free ? "is-enabled" : "is-disabled" %>"
                         <%= "disabled" unless free %>>
-                        <div class="small text-muted mb-1">出勤不可日</div>
+                        <div class="small text-muted mb-1">勤務除外</div>
 
                         <div class="d-flex flex-wrap gap-2 small">
                           <% 7.times do |i| %>
@@ -109,12 +110,13 @@
                       </fieldset>
                     </div>
 
-                    <div class="d-flex align-items-start flex-wrap gap-3">
-                      <label class="d-flex align-items-center gap-1 mb-0 mt-1">
+                    <div id="fixed-group" class="d-flex align-items-start flex-wrap gap-3">
+                      <label class="d-flex align-items-center gap-1 mb-0 mt-1"
+                             style="min-width: 100px;">
                         <%= f.radio_button :workday_constraint, "fixed",
                               checked: @staff.workday_constraint == "fixed",
                               data: { action: "change->workdayConstraint" } %>
-                        出勤日指定
+                        出勤日固定
                       </label>
 
                       <fieldset
@@ -132,6 +134,45 @@
                           <% end %>
                         </div>
                       </fieldset>
+                    </div>
+                    <div id="weekly-group" class="d-flex align-items-start flex-wrap gap-3">
+                      <label class="d-flex align-items-center gap-1 mb-0 mt-1"
+                             style="min-width: 100px;">
+                        <%= f.radio_button :workday_constraint, "weekly",
+                            checked: @staff.workday_constraint == "weekly",
+                            data: { action: "change->workdayConstraint" } %>
+                        週日数固定
+                      </label>
+
+                      <div class="mt-2">
+                        <div id="weekly-workdays-field"
+                            class="workable-wdays <%= @staff.workday_constraint == "weekly" ? "is-enabled" : "is-disabled" %>">
+                          <div class="d-flex align-items-center gap-2 small">
+                            <%= f.number_field :weekly_workdays,
+                                  in: 1..7,
+                                  class: "form-control form-control-sm",
+                                  style: "width: 50px;",
+                                  disabled: @staff.workday_constraint != "weekly" %>
+                            <span>日 / 週</span>
+                          </div>
+                        </div>
+                        <div id="weekly-unworkable-wdays"
+                            class="mt-2 workable-wdays <%= @staff.workday_constraint == "weekly" ? "is-enabled" : "is-disabled" %>">
+                          <div class="small text-muted mb-1">勤務除外</div>
+
+                          <div class="d-flex flex-wrap gap-2 small">
+                            <% 7.times do |i| %>
+                              <label class="d-flex align-items-center gap-1">
+                                <%= check_box_tag "staff[unworkable_wdays][]",
+                                      i,
+                                      checked_unworkable.include?(i),
+                                      disabled: @staff.workday_constraint != "weekly" %>
+                                <%= wdays[i] %>
+                              </label>
+                            <% end %>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

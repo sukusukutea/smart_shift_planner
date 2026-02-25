@@ -211,22 +211,27 @@ module ShiftDrafts
     def apply_workday_constraint(scope, date:)
       wday = ShiftMonth.ui_wday(date)
 
+      free  = Staff.workday_constraints[:free]
+      weekly = Staff.workday_constraints[:weekly]
+      fixed = Staff.workday_constraints[:fixed]
+
       scope
         .left_joins(:staff_workable_wdays)
         .joins(<<~SQL.squish)
           LEFT OUTER JOIN staff_unworkable_wdays
             ON staff_unworkable_wdays.staff_id = staffs.id
-           AND staff_unworkable_wdays.wday = #{ActiveRecord::Base.connection.quote(wday)}
+          AND staff_unworkable_wdays.wday = #{ActiveRecord::Base.connection.quote(wday)}
         SQL
         .where(
-          "(staffs.assignment_policy = :candidate
+          "((staffs.workday_constraint IN (:free, :weekly)
               AND staff_unworkable_wdays.wday IS NULL)
             OR
-            (staffs.assignment_policy = :required
-              AND staff_workable_wdays.wday = :wday)", # staff_unworkable_wdays.wday IS NULLは「その曜日がNG登録されていない人だけを通す」
+            (staffs.workday_constraint = :fixed
+              AND staff_workable_wdays.wday = :wday))",
           wday: wday,
-          candidate: Staff.assignment_policies[:candidate],
-          required:  Staff.assignment_policies[:required]
+          free: free,
+          weekly: weekly,
+          fixed: fixed
         )
         .distinct
     end
@@ -308,6 +313,7 @@ module ShiftDrafts
 
       # 候補IDを取ってRuby側で「直近で働いていない順」→「勤務日数が少ない順」に並べて選ぶ
       candidate_ids = scope.pluck(:id)
+      candidate_ids = filter_ids_by_weekly_cap(candidate_ids, date) if date.present? && [:day, :early, :late].include?(kind)
 
       # 連続勤務5日→２休を強制（Timelineで判定）
       if date.present? && [:day, :early, :late].include?(kind)
@@ -327,7 +333,7 @@ module ShiftDrafts
           :full # 最近働いていない人＋勤務日数を確認 優先順位①最近働いていない人②勤務日数が少ない人
         end
 
-      pick_by_priority(candidate_ids, date: date, priority_mode: priority_mode)
+      pick_by_priority(candidate_ids, date: date, priority_mode: priority_mode, kind: kind)
     end
 
     # 日勤スキルを未選定から追加で埋める。候補をDBから一括取得してshuffleし、Ruby側でpopしていく
@@ -388,7 +394,9 @@ module ShiftDrafts
       end
 
       scope = scope.where.not(id: exclude_ids) if exclude_ids.any?
-      sort_ids_by_priority(scope.pluck(:id), date: date)
+      ids = scope.pluck(:id)
+      ids = filter_ids_by_weekly_cap(ids, date)
+      sort_ids_by_priority(ids, date: date)
     end
 
     def fill_day_roles!(day_rows:, date:, need_nurse:, need_care:, assigned_today:, holiday_ids:, slot:)
@@ -437,7 +445,9 @@ module ShiftDrafts
       end
 
       scope = scope.where.not(id: exclude_ids) if exclude_ids.any?
-      sort_ids_by_priority(scope.pluck(:id), date: date)
+      ids = scope.pluck(:id)
+      ids = filter_ids_by_weekly_cap(ids, date)
+      sort_ids_by_priority(ids, date: date)
     end
 
     # 日単位で「勤務日数」と「最終勤務日」を作る worked_days_by_staff => { staff_id => 12, ... }, last_worked_by_staff => { staff_id => Date, ... }
@@ -448,27 +458,37 @@ module ShiftDrafts
       [worked, last]
     end
 
-    def pick_by_priority(candidate_ids, date:, priority_mode: :full)
+    def pick_by_priority(candidate_ids, date:, priority_mode: :full, kind: nil)
       return nil if candidate_ids.blank?
 
-      ids = sort_ids_by_priority(candidate_ids, date: date, priority_mode: priority_mode)
+      ids = sort_ids_by_priority(candidate_ids, date: date, priority_mode: priority_mode, kind: kind)
 
       @active_scope.find_by(id: ids.last)
     end
 
-    def sort_ids_by_priority(ids, date:, priority_mode: :full)
+    def sort_ids_by_priority(ids, date:, priority_mode: :full, kind: nil)
       Array(ids).sort_by do |sid|
         worked = @worked_days_by_staff[sid].to_i
+
+        week_kind = 0
+        week_day  = 0
+        if date.present? && [:early, :late].include?(kind)
+          week_kind = -assigned_kind_count_in_week(sid, date, kind)
+          week_day  = -assigned_kind_count_in_week(sid, date, :day)
+        end
 
         case priority_mode
         when :worked_only # 純粋に勤務日数だけチェック
           [
+            week_kind,
             -worked, # 末尾が「勤務日数少ない人」にしたいので -worked(小→大で末尾が小さくなる)
             rand
           ]
         else # :full
           days_since = days_since_last_work(sid, date: date)
           [
+            week_kind,
+            week_day,
             days_since,
             -worked,
             rand                                # 同点揺らぎ
@@ -571,6 +591,44 @@ module ShiftDrafts
       @forced_off_dates_by_staff_id[staff_id] << d1 if d1 <= month_end
       @forced_off_dates_by_staff_id[staff_id] << d2 if d2 <= month_end
       @forced_off_dates_by_staff_id[staff_id] << d3 if d3 <= month_end
+    end
+
+    def assigned_dayish_count_in_week(staff_id, date)
+      tl = @timeline.instance_variable_get(:@timeline)&.[](staff_id.to_i)
+      return 0 if tl.blank?
+
+      week_begin = date.beginning_of_week(:monday)
+      week_end   = week_begin + 6
+
+      (week_begin..week_end).count do |d|
+        kind = tl[d]
+        [:day, :early, :late].include?(kind)
+      end
+    end
+
+    def filter_ids_by_weekly_cap(ids, date)
+      Array(ids).reject do |sid|
+        staff = @staff_by_id[sid.to_i]
+        next false if staff.nil?
+        next false unless staff.workday_constraint == "weekly"
+
+        limit = staff.weekly_workdays.to_i
+        next false if limit <= 0
+
+        assigned_dayish_count_in_week(sid, date) >= limit
+      end
+    end
+
+    def assigned_kind_count_in_week(staff_id, date, kind)
+      tl = @timeline.instance_variable_get(:@timeline)&.[](staff_id.to_i)
+      return 0 if tl.blank?
+
+      week_begin = date.beginning_of_week(:monday)
+      week_end   = week_begin + 6
+
+      (week_begin..week_end).count do |d|
+        tl[d] == kind
+      end
     end
   end
 end

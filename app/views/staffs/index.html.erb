@@ -85,9 +85,24 @@
                       <span class="text-muted">
                         -
                         <% if ng.any? %>
-                          (<%= ng.map { |i| "#{wdays[i]}" }.join %>✖︎)
+                          <span class="small text-muted">
+                          ❎<%= ng.map { |i| "#{wdays[i]}" }.join %>
+                          </span>
                         <% end %>
                       </span>
+                    <% elsif staff.workday_constraint == "weekly" %>
+                      <% ng = staff.staff_unworkable_wdays.map(&:wday).sort %>
+
+                      <span class="small">
+                        週<%= staff.weekly_workdays %>日
+                      </span>
+
+                      <% if ng.any? %>
+                        <span class="small text-muted">
+                          ❎<%= ng.map { |i| wdays[i] }.join %>
+                        </span>
+                      <% end %>
+
                     <% else %>
                       <% selected = staff.staff_workable_wdays.map(&:wday).sort %>
                       <span><%= selected.map { |i| wdays[i] }.join %></span> 
