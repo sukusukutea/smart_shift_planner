@@ -57,11 +57,8 @@ module ShiftDrafts
         # 前日までのdraftをtimelineに反映（連続勤務判定のため）
         @timeline.call
 
-        enabled_map = @shift_month.enabled_map_for(date) # その日の勤務のON/OFFを取得 返り値例{ day: true, early: true, late: false, night: true }
-        skill_counts = @shift_month.required_skill_counts_for(date)
-        
+        enabled_map = @shift_month.enabled_map_for(date) # その日の勤務のON/OFFを取得 返り値例{ day: true, early: true, late: false, night: true }        
         scope = @active_scope
-
         holiday_ids = holiday_ids_by_date[date] || []
         assigned_today = Set.new  # SetはRuby標準ライブラリのSetクラス「同じ値を二度入れられない」。同じidが重複できない
         day_hash = {} # その日の最終結果
@@ -94,11 +91,6 @@ module ShiftDrafts
         fill_order = [:early, :late, :day, :night]
         fill_order.each do |kind|
           next unless enabled_map[kind] # OFFなら割当しない
-          # day以外は基本１枠。遅番のみ日別設定で２枠まで許可する
-          if kind != :day
-            limit = (kind == :late) ? @shift_month.late_slots_for(date) : 1
-            next if Array(day_hash[kind]).size >= limit
-          end
 
           if kind == :day
             counts = @shift_month.required_counts_for(date, shift_kind: :day)
@@ -115,15 +107,6 @@ module ShiftDrafts
 
             day_rows = Array(day_hash[:day])
             slot = day_rows.size
-            day_staff_ids = day_rows.map { | row| row[:staff_id] }.compact.map(&:to_i)
-
-            already_nurse = 0
-            already_care  = 0
-
-            if day_staff_ids.any?
-              already_nurse = day_staff_ids.count { |sid| occ_name_by_staff_id[sid].to_s.include?("看護") }
-              already_care  = day_staff_ids.count { |sid| occ_name_by_staff_id[sid].to_s.include?("介護") }
-            end
 
             fixed_staffs.each do |staff|
               occ_name = staff.occupation.name
@@ -135,15 +118,6 @@ module ShiftDrafts
                 slot += 1
                 next
               end
-              
-              role =
-                if occ_name.include?("看護")
-                  :nurse
-                elsif occ_name.include?("介護")
-                  :care
-                else
-                  next
-                end
 
               day_rows << { slot: slot, staff_id: staff.id }
               assigned_today.add(staff.id)
@@ -183,21 +157,27 @@ module ShiftDrafts
             next
           end
 
-          # 返り値：今日すでに使ったIDがいればStaffオブジェクト、いなければnil
-          exclude_for_normal = assigned_today.to_a + holiday_ids + forced_off_ids
-          staff = pick_staff_for(kind, exclude_ids: exclude_for_normal, date: date)
+          # --- 日勤以外（early / late / night）---
+          limit = (kind == :late) ? @shift_month.late_slots_for(date) : 1
 
-          # 夜勤候補が0なら「夜勤2連続」を例外で許可
-          if staff.nil? && kind == :night
-            staff = pick_staff_for_double_night(date: date, exclude_ids: assigned_today.to_a + holiday_ids)
+          while Array(day_hash[kind]).size < limit
+            forced_off_ids_now = forced_off_staff_ids_on(date)
+            exclude_for_normal = assigned_today.to_a + holiday_ids + forced_off_ids_now
+
+            staff = pick_staff_for(kind, exclude_ids: exclude_for_normal, date: date)
+
+            # 夜勤候補が0なら「夜勤2連続」を例外で許可
+            if staff.nil? && kind == :night
+              staff = pick_staff_for_double_night(date: date, exclude_ids: assigned_today.to_a + holiday_ids)
+            end
+
+            break if staff.nil?
+
+            (day_hash[kind] ||= []) << { slot: (day_hash[kind]&.size || 0), staff_id: staff.id }
+            assigned_today.add(staff.id)
+            track_work!(staff.id, date: date)
+            after_assigned!(staff.id, date: date, kind: kind, month_end: @month_end)
           end
-
-          next if staff.nil? # 候補0なら空欄
-
-          (day_hash[kind] ||= []) << { slot: (day_hash[kind]&.size || 0), staff_id: staff.id }
-          assigned_today.add(staff.id)
-          track_work!(staff.id, date: date)
-          after_assigned!(staff.id, date: date, kind: kind, month_end: @month_end)
         end
 
         draft[date.iso8601] = day_hash # １日のドラフトを格納
