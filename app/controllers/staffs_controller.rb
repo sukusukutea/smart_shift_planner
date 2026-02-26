@@ -46,6 +46,8 @@ class StaffsController < ApplicationController
     ActiveRecord::Base.transaction do
       normalize_weekly_workdays!(@staff)
 
+      replace_day_time_option_references_before_delete!
+
       if @staff.save
         save_wdays!(@staff)
         success = true
@@ -81,7 +83,6 @@ class StaffsController < ApplicationController
   private
 
   def set_staff
-    @staff = current_user.staffs.includes(:staff_workable_wdays).find(params[:id])
     @staff = current_user.staffs.includes(:staff_workable_wdays, :staff_unworkable_wdays).find(params[:id])
   end
 
@@ -106,7 +107,15 @@ class StaffsController < ApplicationController
       :can_visit, :can_drive, :can_cook,
       :workday_constraint,
       :assignment_policy,
-      :weekly_workdays
+      :weekly_workdays,
+      staff_day_time_options_attributes: [
+        :id,
+        :time_text,
+        :position,
+        :active,
+        :is_default,
+        :_destroy
+      ]
     )
   end
 
@@ -133,6 +142,45 @@ class StaffsController < ApplicationController
       staff.staff_workable_wdays.delete_all
       staff.staff_unworkable_wdays.delete_all
       unworkable.each { |wday| staff.staff_unworkable_wdays.create!(wday: wday) }
+    end
+  end
+
+  def replace_day_time_option_references_before_delete!
+    # @staff.assign_attributes(staff_params) 後なので、ここにはネストの変更が反映されている前提
+
+    # Railsが「削除予定」と判断した子からIDを拾う（params解析より堅い）
+    destroy_ids =
+      @staff.staff_day_time_options
+            .select(&:marked_for_destruction?)
+            .map(&:id)
+            .compact
+
+    return if destroy_ids.empty?
+
+    # 念のため：対象スタッフのoptionだけ
+    destroy_ids =
+      StaffDayTimeOption.where(id: destroy_ids, staff_id: @staff.id).pluck(:id)
+    return if destroy_ids.empty?
+
+    scope = ShiftDayAssignment.unscoped.where(staff_day_time_option_id: destroy_ids)
+    has_refs = scope.exists?
+    return unless has_refs
+
+    confirmed = ActiveModel::Type::Boolean.new.cast(params.dig(:staff, :confirm_day_time_option_delete))
+
+    unless confirmed
+      @staff.errors.add(:base, "日勤の表示を削除すると、保存されている日勤表示はすべて時間表記なしに変わります。確認してから保存してください。")
+      raise ActiveRecord::Rollback
+    end
+
+    # 参照を全部NULLへ（FK回避）
+    scope.update_all(staff_day_time_option_id: nil, updated_at: Time.current)
+
+    # 保険：まだ参照が残るなら、ここで止めて原因を可視化する
+    remain = ShiftDayAssignment.unscoped.where(staff_day_time_option_id: destroy_ids).count
+    if remain > 0
+      @staff.errors.add(:base, "削除前の置換に失敗しました（参照が#{remain}件残っています）。")
+      raise ActiveRecord::Rollback
     end
   end
 end

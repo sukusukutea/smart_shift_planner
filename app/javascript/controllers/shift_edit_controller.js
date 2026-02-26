@@ -15,12 +15,25 @@ export default class extends Controller {
     if (!display) return
 
     const nameBase = select.dataset.staffName || ""
-    const v = select.value // "day" / "early" / "late" / "off"
-    const isOff = (v === "off")
+    const raw = select.value // "early" / "late" / "off" / "day:12"
+    const isOff = (raw === "off")
 
+    let kind = raw
+    let staffDayTimeOptionId = null
+    if (raw && raw.startsWith("day:")) {
+      kind = "day"
+      const parts = raw.split(":")
+      staffDayTimeOptionId = parts[1] ? parseInt(parts[1], 10) : null
+    }
+
+    // 表示用の時間文字列（optionのdata-time-textを優先）
     let timeText = ""
-    if (v === "early") timeText = "(730-1630)"
-    if (v === "late") timeText = "(11-20)"
+    const selectedOpt = select.options[select.selectedIndex]
+    const optTime = selectedOpt ? selectedOpt.dataset.timeText : ""
+
+    if (kind === "early") timeText = "(730-1630)"
+    if (kind === "late")  timeText = "(11-20)"
+    if (kind === "day" && optTime) timeText = `(${optTime})`
 
     display.classList.toggle("is-off", isOff)
 
@@ -44,21 +57,25 @@ export default class extends Controller {
       if (timeEl) timeEl.remove()
     }
 
-    this.queueSave(select)
+    this.queueSave(select, { kind, staffDayTimeOptionId })
   }
 
-  queueSave(select) {
+  queueSave(select, payload) {
     if (this._saveTimer) clearTimeout(this._saveTimer)
-    this._saveTimer = setTimeout(() => this.save(select), 400)
+    this._saveTimer = setTimeout(() => this.save(select, payload), 400)
   }
 
-  async save(select) {
+  async save(select, payload) {
     const url = select.dataset.updateUrl
     if (!url) return
 
     const staffId = select.dataset.staffId
     const date = select.dataset.date
-    const kind = select.value
+
+    const kind = payload && payload.kind ? payload.kind : select.value
+    const staffDayTimeOptionId =
+      (payload && payload.staffDayTimeOptionId) ? payload.staffDayTimeOptionId : null
+
 
     const row = select.closest(".shift-edit-row")
     const display = row ? row.querySelector(".shift-edit-display") : null
@@ -81,7 +98,8 @@ export default class extends Controller {
         body: JSON.stringify({
           date: date,
           staff_id: staffId,
-          kind: kind
+          kind: kind,
+          staff_day_time_option_id: staffDayTimeOptionId
         })
       })
 

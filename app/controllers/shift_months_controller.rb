@@ -14,9 +14,15 @@ class ShiftMonthsController < ApplicationController
 
   def show
     scope = @shift_month.shift_day_assignments.confirmed.where(date: @month_begin..@month_end)
-    @saved = build_assignments_hash(scope.select(:id, :date, :shift_kind, :staff_id, :slot))
+    @saved = build_assignments_hash(scope.select(:id, :date, :shift_kind, :staff_id, :slot, :staff_day_time_option_id))
 
     prepare_calendar_page(assignments_hash: @saved)
+
+    @holiday_requests_by_date =
+      @shift_month.staff_holiday_requests
+                  .includes(:staff)
+                  .where(date: @calendar_begin..@calendar_end)
+                  .group_by(&:date)
   end
 
   def create
@@ -422,6 +428,13 @@ class ShiftMonthsController < ApplicationController
     kind_str = params.require(:kind).to_s
     staff_id = params.require(:staff_id).to_i
 
+    staff_day_time_option_id =
+      if params.key?(:staff_day_time_option_id) && params[:staff_day_time_option_id].present?
+        params[:staff_day_time_option_id].to_i
+      else
+        nil
+      end
+
     allowed = %w[day early late night off]
     unless allowed.include?(kind_str)
       render json: { ok: false, error: "kind is invalid" }, status: :unprocessable_entity
@@ -431,6 +444,14 @@ class ShiftMonthsController < ApplicationController
     if kind_str != "off" && staff_id <= 0
       render json: { ok: false, error: "staff_id is invalid" }, status: :unprocessable_entity
       return
+    end
+
+    if kind_str == "day" && staff_day_time_option_id.present?
+      ok = StaffDayTimeOption.where(id: staff_day_time_option_id, staff_id: staff_id).exists?
+      unless ok
+        render json: { ok: false, error: "staff_day_time_option_id is invalid" }, status: :unprocessable_entity
+        return
+      end
     end
 
     editable_kinds = %i[day early late night]
@@ -478,13 +499,18 @@ class ShiftMonthsController < ApplicationController
             max_slot = scope.where(date: d, shift_kind: :day).maximum(:slot)
             slot = max_slot.to_i + 1
 
+            day_opt_id =
+              StaffDayTimeOption.where(staff_id: night_staff_id, active: true, is_default: true).pick(:id) ||
+              StaffDayTimeOption.where(staff_id: night_staff_id, active: true).order(:position, :id).pick(:id)
+
             @shift_month.shift_day_assignments.create!(
               date: d,
               shift_kind: :day,
               staff_id: night_staff_id,
               slot: slot,
               source: :draft,
-              draft_token: token
+              draft_token: token,
+              staff_day_time_option_id: day_opt_id
             )
           end
         end
@@ -498,13 +524,26 @@ class ShiftMonthsController < ApplicationController
         max_slot = scope.where(date: date, shift_kind: kind).maximum(:slot)
         slot = max_slot.to_i + 1
 
+        opt_id =
+          if kind == :day
+            if staff_day_time_option_id.present?
+              staff_day_time_option_id
+            else
+              StaffDayTimeOption.where(staff_id: staff_id, active: true, is_default: true).pick(:id) ||
+                StaffDayTimeOption.where(staff_id: staff_id, active: true).order(:position, :id).pick(:id)
+            end
+          else
+            nil
+          end
+
         @shift_month.shift_day_assignments.create!(
           date: date,
           shift_kind: kind,
           staff_id: staff_id,
           slot: slot,
           source: :draft,
-          draft_token: token
+          draft_token: token,
+          staff_day_time_option_id: opt_id
         )
       end
 
@@ -766,7 +805,7 @@ class ShiftMonthsController < ApplicationController
 
   # draft用：selectを揃えてhash化（preview/edit/update/confirmで共通）
   def build_draft_hash(scope)
-    build_assignments_hash(scope.select(:id, :date, :shift_kind, :staff_id, :slot))
+    build_assignments_hash(scope.select(:id, :date, :shift_kind, :staff_id, :slot, :staff_day_time_option_id))
   end
 
   def load_draft_for_calendar(require_token: false)
@@ -840,7 +879,9 @@ class ShiftMonthsController < ApplicationController
 
   # 表示・集計用に全職員を preload（draft / confirmed 共通）
   def preload_staffs_for # staff_id→Staffをまとめて引く（N+1防止）staff.idをキーにした、ActiveRecordオブジェクトのhashを作っている。
-    @staff_by_id = current_user.staffs.includes(:occupation, :staff_workable_wdays).index_by(&:id)
+    @staff_by_id = current_user.staffs
+                               .includes(:occupation, :staff_workable_wdays, :staff_day_time_options)
+                               .index_by(&:id)
   end
 
   def prepare_daily_tab_vars
@@ -885,7 +926,11 @@ class ShiftMonthsController < ApplicationController
     scope.find_each do |a|
       dkey = a.date.iso8601
       kind = a.shift_kind.to_s
-      h[dkey][kind] << { "slot" => a.slot, "staff_id" => a.staff_id }
+      h[dkey][kind] << { 
+        "slot" => a.slot,
+        "staff_id" => a.staff_id,
+        "staff_day_time_option_id" => a.staff_day_time_option_id
+      }
     end
 
     h.each_value do |kinds_hash|

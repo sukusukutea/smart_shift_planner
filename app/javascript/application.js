@@ -66,3 +66,26 @@ document.addEventListener("change", (e) => {
 
   updateWorkdayConstraintUI(t.value);
 });
+
+document.addEventListener("submit", (e) => {
+  const form = e.target;
+  if (!(form instanceof HTMLFormElement)) return;
+
+  const confirmHidden = form.querySelector("#confirm-day-time-option-delete");
+  if (!confirmHidden) return; // staffフォーム以外は無視
+
+  // staffフォームだけに効かせたいなら、formにidを付けて判定してもOK
+  const destroyChecks = form.querySelectorAll('input[type="checkbox"][name*="staff_day_time_options_attributes"][name$="[_destroy]"]:checked');
+  if (!destroyChecks.length) return;
+
+  const hasUsed = Array.from(destroyChecks).some((el) => el.dataset.used === "true");
+  if (!hasUsed) return;
+
+  const ok = window.confirm("保存されている日勤表示はすべて時間表記なしに変わります。よろしいですか？");
+  if (!ok) {
+    e.preventDefault();
+    return;
+  }
+
+  confirmHidden.value = "1";
+});

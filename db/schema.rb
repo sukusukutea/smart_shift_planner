@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_22_105242) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_25_133958) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -58,11 +58,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_22_105242) do
     t.bigint "shift_month_id", null: false
     t.integer "slot", default: 0, null: false
     t.integer "source", default: 0, null: false
+    t.bigint "staff_day_time_option_id"
     t.bigint "staff_id", null: false
     t.datetime "updated_at", null: false
     t.index ["shift_month_id", "date", "shift_kind", "slot"], name: "idx_sda_confirmed_unique", unique: true, where: "(source = 1)"
     t.index ["shift_month_id", "draft_token", "date", "shift_kind", "slot"], name: "idx_sda_draft_unique", unique: true, where: "(source = 0)"
     t.index ["shift_month_id"], name: "index_shift_day_assignments_on_shift_month_id"
+    t.index ["staff_day_time_option_id"], name: "index_shift_day_assignments_on_staff_day_time_option_id"
     t.index ["staff_id"], name: "index_shift_day_assignments_on_staff_id"
   end
 
@@ -158,6 +160,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_22_105242) do
     t.index ["user_id"], name: "index_shift_months_on_user_id"
   end
 
+  create_table "staff_day_time_options", force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.boolean "is_default", default: false, null: false
+    t.integer "position", default: 1, null: false
+    t.bigint "staff_id", null: false
+    t.string "time_text", null: false
+    t.datetime "updated_at", null: false
+    t.index ["staff_id", "active", "position"], name: "idx_sdto_staff_active_position"
+    t.index ["staff_id"], name: "idx_sdto_unique_default_per_staff", unique: true, where: "(is_default = true)"
+    t.index ["staff_id"], name: "index_staff_day_time_options_on_staff_id"
+  end
+
   create_table "staff_holiday_requests", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.date "date", null: false
@@ -231,6 +246,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_22_105242) do
   add_foreign_key "base_skill_requirements", "users"
   add_foreign_key "base_weekday_requirements", "users"
   add_foreign_key "shift_day_assignments", "shift_months"
+  add_foreign_key "shift_day_assignments", "staff_day_time_options"
   add_foreign_key "shift_day_assignments", "staffs"
   add_foreign_key "shift_day_designations", "shift_months"
   add_foreign_key "shift_day_designations", "staffs"
@@ -242,6 +258,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_22_105242) do
   add_foreign_key "shift_month_skill_requirements", "shift_months"
   add_foreign_key "shift_months", "organizations"
   add_foreign_key "shift_months", "users"
+  add_foreign_key "staff_day_time_options", "staffs"
   add_foreign_key "staff_holiday_requests", "shift_months"
   add_foreign_key "staff_holiday_requests", "staffs"
   add_foreign_key "staff_unworkable_wdays", "staffs"

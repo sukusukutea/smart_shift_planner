@@ -1,0 +1,301 @@
+<%= form_with model: staff, local: true do |f| %>
+  <div class="row mb-3">
+    <label class="col-md-2 col-form-label fw-bold">名前</label>
+    <div class="col-md-3 mb-2 mb-md-0">
+      <div class="input-group">
+        <span class="input-group-text">姓</span>
+        <%= f.text_field :last_name, class: "form-control" %>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="input-group">
+        <span class="input-group-text">名</span>
+        <%= f.text_field :first_name, class: "form-control" %>
+      </div>
+    </div>
+  </div>
+
+  <div class="row mb-3">
+    <label class="col-md-2 col-form-label fw-bold">なまえ</label>
+    <div class="col-md-3 mb-2 mb-md-0">
+      <div class="input-group">
+        <span class="input-group-text">せい</span>
+        <%= f.text_field :last_name_kana, class: "form-control" %>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="input-group">
+        <span class="input-group-text">めい</span>
+        <%= f.text_field :first_name_kana, class: "form-control" %>
+      </div>
+    </div>
+  </div>
+
+  <div class="row mb-4">
+    <label class="col-md-2 col-form-label fw-bold">職種</label>
+    <div class="col-md-3">
+      <%= f.collection_select :occupation_id,
+                              @occupations,
+                              :id,
+                              :name,
+                              { prompt: "選択してください" },
+                              { class: "form-select" } %>
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <div class="d-flex align-items-start gap-4">
+      <div class="form-label fw-bold mb-0" style="min-width: 110px;"> 
+        出勤形態
+      </div>
+
+      <div class="d-flex flex-column gap-2">
+        <% wdays = %w[月 火 水 木 金 土 日] %>
+
+        <% checked_workable   = @staff.staff_workable_wdays.map(&:wday) %>
+        <% checked_unworkable = @staff.staff_unworkable_wdays.map(&:wday) %>
+
+        <% fixed = (@staff.workday_constraint == "fixed") %>
+        <% free  = !fixed %>
+
+        <div id="free-group" class="d-flex align-items-start flex-wrap gap-3">
+          <label class="d-flex align-items-center gap-1 mb-0 mt-1"
+                 style="min-width: 100px;">
+            <%= f.radio_button :workday_constraint, "free",
+                checked: (@staff.workday_constraint.presence || "free") == "free",
+                data: { action: "change->workdayConstraint" } %>
+            制限なし
+          </label>
+
+          <fieldset
+            id="unworkable-wdays-fieldset"
+            class="mt-2 workable-wdays <%= free ? "is-enabled" : "is-disabled" %>"
+            <%= "disabled" unless free %>>
+            <div class="small text-muted mb-1">勤務除外</div>
+
+            <div class="d-flex flex-wrap gap-2 small">
+              <% 7.times do |i| %>
+                <label class="d-flex align-items-center gap-1">
+                  <%= check_box_tag "staff[unworkable_wdays][]", i, checked_unworkable.include?(i) %>
+                  <%= wdays[i] %>
+                </label>
+              <% end %>
+            </div>
+          </fieldset>
+        </div>
+
+        <div id="fixed-group" class="d-flex align-items-start flex-wrap gap-3">
+          <label class="d-flex align-items-center gap-1 mb-0 mt-1"
+                 style="min-width: 100px;">
+            <%= f.radio_button :workday_constraint, "fixed",
+                    checked: @staff.workday_constraint == "fixed",
+                    data: { action: "change->workdayConstraint" } %>
+            出勤日固定
+          </label>
+
+          <fieldset
+            id="workable-wdays-fieldset"
+            class="mt-2 workable-wdays <%= fixed ? "is-enabled" : "is-disabled" %>"
+            <%= "disabled" unless fixed %>>
+            <div class="small text-muted mb-1">出勤日</div>
+
+            <div class="d-flex flex-wrap gap-2 small">
+              <% 7.times do |i| %>
+                <label class="d-flex align-items-center gap-1">
+                  <%= check_box_tag "staff[workable_wdays][]", i, checked_workable.include?(i) %>
+                  <%= wdays[i] %>
+                </label>
+              <% end %>
+            </div>
+          </fieldset>
+        </div>
+        <div id="weekly-group" class="d-flex align-items-start flex-wrap gap-3">
+          <label class="d-flex align-items-center gap-1 mb-0 mt-1"
+                 style="min-width: 100px;">
+            <%= f.radio_button :workday_constraint, "weekly",
+                checked: @staff.workday_constraint == "weekly",
+                data: { action: "change->workdayConstraint" } %>
+            週日数固定
+          </label>
+
+          <div class="mt-2">
+            <div id="weekly-workdays-field"
+              class="workable-wdays <%= @staff.workday_constraint == "weekly" ? "is-enabled" : "is-disabled" %>">
+                <div class="d-flex align-items-center gap-2 small">
+                  <%= f.number_field :weekly_workdays,
+                        in: 1..7,
+                        class: "form-control form-control-sm",
+                        style: "width: 50px;",
+                        disabled: @staff.workday_constraint != "weekly" %>
+                  <span>日 / 週</span>
+                </div>
+            </div>
+            <div id="weekly-unworkable-wdays"
+                 class="mt-2 workable-wdays <%= @staff.workday_constraint == "weekly" ? "is-enabled" : "is-disabled" %>">
+              <div class="small text-muted mb-1">勤務除外</div>
+
+              <div class="d-flex flex-wrap gap-2 small">
+                <% 7.times do |i| %>
+                  <label class="d-flex align-items-center gap-1">
+                    <%= check_box_tag "staff[unworkable_wdays][]",
+                            i,
+                            checked_unworkable.include?(i),
+                            disabled: @staff.workday_constraint != "weekly" %>
+                    <%= wdays[i] %>
+                  </label>
+                <% end %>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row mb-3 align-items-top">
+    <label class="col-md-2 col-form-label fw-bold">勤務可否</label>
+    <div class="col-md-10">
+      <div class="row mb-2 align-items-center">
+        <div class="col-3 col-md-2">日勤</div>
+        <div class="col-9 col-md-10">
+          <div class="form-check form-check-inline">
+            <%= f.radio_button :can_day, true, id: "staff_can_day_true", class: "form-check-input" %>
+            <label class="form-check-label" for="staff_can_day_true">可</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <%= f.radio_button :can_day, false, id: "staff_can_day_false", class: "form-check-input" %>
+            <label class="form-check-label" for="staff_can_day_false">不可</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="row mb-2 align-items-center">
+        <div class="col-3 col-md-2">早番</div>
+        <div class="col-9 col-md-10">
+          <div class="form-check form-check-inline">
+            <%= f.radio_button :can_early, true, id: "staff_can_early_true", class: "form-check-input" %>
+            <label class="form-check-label" for="staff_can_early_true">可</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <%= f.radio_button :can_early, false, id: "staff_can_early_false", class: "form-check-input" %>
+            <label class="form-check-label" for="staff_can_early_false">不可</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="row mb-2 align-items-center">
+        <div class="col-3 col-md-2">遅番</div>
+        <div class="col-9 col-md-10">
+          <div class="form-check form-check-inline">
+            <%= f.radio_button :can_late, true, id: "staff_can_late_true", class: "form-check-input" %>
+            <label class="form-check-label" for="staff_can_late_true">可</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <%= f.radio_button :can_late, false, id: "staff_can_late_false", class: "form-check-input" %>
+            <label class="form-check-label" for="staff_can_late_false">不可</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="row mb-2 align-items-center">
+        <div class="col-3 col-md-2">夜勤</div>
+        <div class="col-9 col-md-10">
+          <div class="form-check form-check-inline">
+            <%= f.radio_button :can_night, true, id: "staff_can_night_true", class: "form-check-input" %>
+            <label class="form-check-label" for="staff_can_night_true">可</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <%= f.radio_button :can_night, false, id: "staff_can_night_false", class: "form-check-input" %>
+            <label class="form-check-label" for="staff_can_night_false">不可</label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row mb-4 align-items-center">
+    <label class="col-md-2 col-form-label fw-bold mb-0">スキル</label>
+    <div class="col-md-10">
+      <div class="form-check form-check-inline">
+        <%= f.check_box :can_visit, class: "form-check-input", id: "staff_can_visit" %>
+        <label class="form-check-label" for="staff_can_visit">訪問</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <%= f.check_box :can_drive, class: "form-check-input", id: "staff_can_drive" %>
+        <label class="form-check-label" for="staff_can_drive">運転</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <%= f.check_box :can_cook, class: "form-check-input", id: "staff_can_cook" %>
+        <label class="form-check-label" for="staff_can_cook">調理</label>
+      </div>
+    </div>
+  </div>
+
+ <%# =========================================
+     日勤の時間候補（StaffDayTimeOption）
+     - 複数登録OK
+     - active=true のものだけを後でselect候補にする想定
+     - is_default は「1つだけ」(モデルバリデーションで担保)
+  ========================================= %>
+
+  <div class="row mb-4">
+    <label class="col-md-3 col-form-label fw-bold text-nowrap">日勤表示登録（任意）</label>
+
+    <div class="col-md-9">
+      <div class="small text-muted mb-1">
+        例）730-1630 / 8:30-17:30 / 8-17（半角数字と「- : /（スペース可）」のみ）
+      </div>
+
+      <%# 追加ボタンなしで複数入力できるように、空行を3つ補う %>
+      <% options = staff.staff_day_time_options.to_a %>
+      <% (3 - options.size).times { staff.staff_day_time_options.build(active: false, is_default: false) } if options.size < 3 %>
+
+      <div class="d-flex flex-column gap-2">
+        <%= f.fields_for :staff_day_time_options do |ff| %>
+          <div class="dayopt-row">
+            <%= ff.hidden_field :id %>
+
+            <div class="input-group input-group-sm dayopt-time">
+              <span class="input-group-text">時間</span>
+              <%= ff.text_field :time_text, class: "form-control", placeholder: "例）730-1630" %>
+            </div>
+
+            <div class="dayopt-check">
+              <%= ff.check_box :active, class: "form-check-input" %>
+              <%= ff.label :active, "有効", class: "form-check-label ms-1" %>
+            </div>
+
+            <div class="dayopt-check">
+              <%= ff.check_box :is_default, class: "form-check-input" %>
+              <%= ff.label :is_default, "デフォルト", class: "form-check-label ms-1" %>
+            </div>
+
+            <% if ff.object&.persisted? %>
+              <% used = ShiftDayAssignment.unscoped.where(staff_day_time_option_id: ff.object.id).exists? %>
+              <div class="dayopt-check">
+                <%= ff.check_box :_destroy, class: "form-check-input", data: { used: used } %>
+                <%= ff.label :_destroy, "削除", class: "form-check-label ms-1 text-danger" %>
+              </div>
+            <% else %>
+              <div></div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+
+      <div class="small text-muted mt-2">
+        <li>「デフォルト」は1つのみ有効（複数チェックすると保存時にエラーになります）</li>
+        <li>「有効」にすることで、手修正モード時に選択可能になります</li>
+        <li>設定がなければ、日勤は名前のみの表示になります</li>
+      </div>
+    </div>
+  </div>
+
+  <%= hidden_field_tag "staff[confirm_day_time_option_delete]", "0", id: "confirm-day-time-option-delete" %>
+  <div class="row mt-4">
+    <div class="col-md-8 text-end">
+      <% submit_label = @staff.persisted? ? "更新" : "登録" %>
+      <%= f.submit submit_label, class: "btn btn-primary px-4" %>
+    </div>
+  </div>
+<% end %>
