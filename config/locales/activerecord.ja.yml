@@ -1,4 +1,5 @@
 ja:
+  debug_i18n_loaded: "LOADED_20260226"
   activerecord:
     attributes:
       user:
@@ -8,6 +9,9 @@ ja:
         password: "パスワード"
         password_confirmation: "パスワード（確認用）"
       staff:
+        staff_day_time_options_time_text: "日勤表示登録（時間）"
+        staff_day_time_options_active: "日勤表示登録（有効）"
+        staff_day_time_options_is_default: "日勤表示登録（デフォルト）"
         occupation: "職種"
         last_name: "姓"
         first_name: "名"
@@ -18,6 +22,8 @@ ja:
         year: "年"
         month: "月"
     errors:
+      messages:
+        blank: "を入力してください"
       models:
         user:
           attributes:

@@ -53,10 +53,18 @@
                       end %>
 
       <% assigned_kind_by_id = {} %>
+      <% assigned_day_time_option_id_by_id = {} %>
       <% { day: day_rows, early: early_rows, late: late_rows }.each do |kind_sym, rows| %>
         <% Array(rows).each do |r| %>
           <% sid = (r["staff_id"] || r[:staff_id]).to_i %>
-          <% assigned_kind_by_id[sid] = kind_sym if sid > 0 %>
+          <% next unless sid > 0 %>
+
+          <% assigned_kind_by_id[sid] = kind_sym %>
+
+          <% if kind_sym == :day %>
+            <% opt_id = (r["staff_day_time_option_id"] || r[:staff_day_time_option_id]).to_i %>
+            <% assigned_day_time_option_id_by_id[sid] = (opt_id > 0 ? opt_id : nil) %>
+          <% end %>
         <% end %>
       <% end %>
 
@@ -67,7 +75,17 @@
         <% elsif kind == :late %>
           <div class="small shift-line"><%= s.last_name %><span class="shift-time">11-20</span></div>
         <% elsif kind == :day %>
-          <div class="small"><%= s.last_name %></div>
+          <% day_opts = Array(s.staff_day_time_options).select { |o| o.active? }.sort_by { |o| [o.position.to_i, o.id.to_i] } %>
+          <% day_default = day_opts.find { |o| o.is_default? } %>
+          <% picked_id = assigned_day_time_option_id_by_id[s.id] || day_default&.id %>
+          <% picked = picked_id.present? ? day_opts.find { |o| o.id.to_i == picked_id.to_i } : nil %>
+          <% t = picked&.time_text.to_s %>
+
+          <% if t.present? %>
+            <div class="small shift-line"><%= s.last_name %><span class="shift-time"><%= t %></span></div>
+          <% else %>
+            <div class="small"><%= s.last_name %></div>
+          <% end %>
         <% else %>
           <% if night_related_ids.include?(s.id.to_i) %>
             <div class="small text-danger"><%= s.last_name %></div>
@@ -82,9 +100,49 @@
         <% sid = (row["staff_id"] || row[:staff_id]).to_i %>
         <% staff = staff_by_id[sid] %>
         <% next if staff.nil? || !staff.active? %>
-        <% if row_key_for(staff) == row_key %>
+        <% next unless row_key_for(staff) == row_key %>
+
+        <% opt_id = (row["staff_day_time_option_id"] || row[:staff_day_time_option_id]).to_i %>
+        <% day_opts = Array(staff.staff_day_time_options).select { |o| o.active? }.sort_by { |o| [o.position.to_i, o.id.to_i] } %>
+        <% day_default = day_opts.find { |o| o.is_default? } %>
+        <% picked_id = (opt_id > 0 ? opt_id : nil) || day_default&.id %>
+        <% picked = picked_id.present? ? day_opts.find { |o| o.id.to_i == picked_id.to_i } : nil %>
+        <% t = picked&.time_text.to_s %>
+
+        <% if t.present? %>
+          <div class="small shift-line"><%= staff.last_name %><span class="shift-time"><%= t %></span></div>
+        <% else %>
           <div class="small"><%= staff.last_name %></div>
         <% end %>
+      <% end %>
+
+      <%# --- 夜勤関連（夜勤入り/明け等）は日勤側に「赤字で名前だけ」出す（介護と同じ挙動）--- %>
+      <% displayed_ids = [] %>
+
+      <% day_rows.each do |row| %>
+        <% sid = (row["staff_id"] || row[:staff_id]).to_i %>
+        <% displayed_ids << sid if sid > 0 %>
+      <% end %>
+      <% early_rows.each do |row| %>
+        <% sid = (row["staff_id"] || row[:staff_id]).to_i %>
+        <% displayed_ids << sid if sid > 0 %>
+      <% end %>
+      <% late_rows.each do |row| %>
+        <% sid = (row["staff_id"] || row[:staff_id]).to_i %>
+        <% displayed_ids << sid if sid > 0 %>
+      <% end %>
+
+      <% Array(night_related_ids).each do |sid| %>
+        <% sid = sid.to_i %>
+        <% next if sid <= 0 %>
+        <% next if displayed_ids.include?(sid) %>
+
+        <% staff = staff_by_id[sid] %>
+        <% next if staff.nil? %>
+        <% next if staff.respond_to?(:active?) && !staff.active? %>
+        <% next unless row_key_for(staff) == row_key %>
+
+        <div class="small text-danger"><%= staff.last_name %></div>
       <% end %>
 
       <%# 未割当(休み)表示：その月だけ %>

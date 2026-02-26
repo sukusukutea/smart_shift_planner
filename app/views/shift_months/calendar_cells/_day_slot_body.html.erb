@@ -18,19 +18,32 @@
   <% staffs_for_row = sorted_staffs_for_row(staff_by_id: staff_by_id, row_key: row_key) %>
 
   <% assigned_kind_by_id = {} %>
+  <% assigned_day_time_option_id_by_id = {} %>
+
   <% { day: day_rows, early: early_rows, late: late_rows }.each do |kind_sym, rows| %>
     <% Array(rows).each do |r| %>
       <% sid = (r["staff_id"] || r[:staff_id]).to_i %>
-      <% assigned_kind_by_id[sid] = kind_sym if sid > 0 %>
+      <% next unless sid > 0 %>
+
+      <% assigned_kind_by_id[sid] = kind_sym %>
+
+      <% if kind_sym == :day %>
+        <% opt_id = (r["staff_day_time_option_id"] || r[:staff_day_time_option_id]).to_i %>
+        <% assigned_day_time_option_id_by_id[sid] = (opt_id > 0 ? opt_id : nil) %>
+      <% end %>
     <% end %>
   <% end %>
 
   <% staffs_for_row.each do |s| %>
     <% kind = assigned_kind_by_id[s.id] %>
     <% night_related = night_related_ids.map(&:to_i).include?(s.id) %>
+    <% day_opts = Array(s.staff_day_time_options).select { |o| o.active? }.sort_by { |o| [o.position.to_i, o.id.to_i] } %>
+    <% day_default = day_opts.find { |o| o.is_default? } %>
+
     <% selected =
       if kind == :day
-        "day"
+        picked_id = assigned_day_time_option_id_by_id[s.id] || day_default&.id
+        picked_id.present? ? "day:#{picked_id}" : "day"
       elsif kind == :early
         "early"
       elsif kind == :late
@@ -45,6 +58,10 @@
         "(730-1630)"
       elsif selected == "late"
         "(11-20)"
+      elsif selected.to_s.start_with?("day:")
+        picked_id = selected.split(":")[1].to_i
+        picked = day_opts.find { |o| o.id.to_i == picked_id }
+        picked&.time_text.present? ? "(#{picked.time_text})" : ""
       else
         ""
       end %>
@@ -75,10 +92,31 @@
           data-date="<%= date.iso8601 %>"
           data-occupation="<%= row_key %>">
 
-          <option value="day"   <%= "selected" if selected == "day"   %>><%= s.last_name %></option>
-          <option value="early" <%= "selected" if selected == "early" %>><%= s.last_name %>(730-1630)</option>
-          <option value="late"  <%= "selected" if selected == "late"  %>><%= s.last_name %>(11-20)</option>
-          <option value="off"   <%= "selected" if selected == "off"   %>><%= s.last_name %>(休)</option>
+          <option value="day" <%= "selected" if selected == "day" %>>
+            <%= s.last_name %>
+          </option>
+
+          <% day_opts.each do |opt| %>
+            <% v = "day:#{opt.id}" %>
+            <option
+              value="<%= v %>"
+              data-time-text="<%= opt.time_text %>"
+              <%= "selected" if selected == v %>>
+              <%= s.last_name %>(<%= opt.time_text %>)
+            </option>
+          <% end %>
+
+          <option value="early" data-time-text="730-1630" <%= "selected" if selected == "early" %>>
+            <%= s.last_name %>(730-1630)
+          </option>
+
+          <option value="late" data-time-text="11-20" <%= "selected" if selected == "late" %>>
+            <%= s.last_name %>(11-20)
+          </option>
+
+          <option value="off" <%= "selected" if selected == "off" %>>
+            <%= s.last_name %>(休)
+          </option>
         </select>
       <% end %>
     </div>

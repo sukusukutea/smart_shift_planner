@@ -5,6 +5,25 @@ class Staff < ApplicationRecord
   has_many :staff_workable_wdays, dependent: :destroy
   has_many :shift_day_designations, dependent: :restrict_with_exception
   has_many :staff_unworkable_wdays, dependent: :destroy
+  has_many :staff_day_time_options, -> { order(:position) }, dependent: :destroy
+  has_one  :default_day_time_option,
+         -> { where(is_default: true) },
+         class_name: "StaffDayTimeOption"
+
+  accepts_nested_attributes_for :staff_day_time_options,
+                                allow_destroy: true,
+                                reject_if: ->(attrs) do
+                                  time_blank = attrs["time_text"].blank?
+                                  active_on  = ActiveModel::Type::Boolean.new.cast(attrs["active"])
+                                  default_on = ActiveModel::Type::Boolean.new.cast(attrs["is_default"])
+                                  destroy_on = ActiveModel::Type::Boolean.new.cast(attrs["_destroy"])
+
+                                  # 削除は通す（rejectしない）
+                                  next false if destroy_on
+
+                                  # 「時間空」かつ「active/default もOFF」の行だけ無視する
+                                  time_blank && !active_on && !default_on
+                                end
 
   enum :workday_constraint, { free: 0, fixed: 1, weekly: 2 }
   enum :assignment_policy, { candidate: 0, required: 1 }
@@ -41,4 +60,33 @@ class Staff < ApplicationRecord
   validates :weekly_workdays,
             absence: true,
             unless: :weekly?
+
+  validate :only_one_day_time_default_in_form
+
+  class << self
+    def human_attribute_name(attr, options = {})
+      key = attr.to_s
+
+      # accepts_nested_attributes_for 経由のエラーで
+      # "staff_day_time_options.time_text" のようなドット付きが来るので、
+      # 翻訳が効く underscore 形式へ寄せる
+      if key.start_with?("staff_day_time_options.")
+        key = key.tr(".", "_") # staff_day_time_options_time_text へ
+      end
+
+      super(key, options)
+    end
+  end
+
+  def only_one_day_time_default_in_form
+    return unless staff_day_time_options.loaded? || staff_day_time_options.any?
+
+    defaults =
+      staff_day_time_options.reject(&:marked_for_destruction?)
+                            .select { |o| ActiveModel::Type::Boolean.new.cast(o.is_default) }
+
+    return if defaults.size <= 1
+
+    errors.add(:base, "「デフォルト」は1つだけ選択してください")
+  end
 end

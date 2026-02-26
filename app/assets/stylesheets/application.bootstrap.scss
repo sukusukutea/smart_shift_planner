@@ -373,3 +373,29 @@ body.sidebar-left-collapsed #sidebar-col {
 .night-edit-display.is-selected {
   color: #000;
 }
+
+/* =========================================
+   職員登録ページの日勤表示登録部分
+========================================= */
+
+/* 日勤表示登録（任意）の1行を崩れにくいGridで整列 */
+.dayopt-row {
+  display: grid;
+  grid-template-columns: 180px max-content max-content max-content; /* 時間 / 有効 / デフォルト / 削除 */
+  column-gap: 0.5rem;  /* 横の間隔だけ調整（デフォルトを有効に寄せたいなら小さめ） */
+  row-gap: 0.25rem;
+  align-items: center;
+}
+
+/* input-groupの幅をGrid列にフィットさせる */
+.dayopt-time {
+  max-width: 180px;
+}
+
+/* チェック群の見た目を揃える */
+.dayopt-check {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  margin: 0;
+}
