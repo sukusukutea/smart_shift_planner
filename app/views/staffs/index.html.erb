@@ -16,8 +16,8 @@
           <thead>
             <tr class="text-center">
               <th style="width: 100px; background-color: #e6f0f0;">操作</th>
-              <th style="width: 150px; background-color: #e6f0f0;">スタッフ名</th>
-              <th style="width: 150px; background-color: #e6f0f0;">職種</th>
+              <th style="width: 130px; background-color: #e6f0f0;">スタッフ名</th>
+              <th style="width: 100px; background-color: #e6f0f0;">職種</th>
               <th style="width: 100px; background-color: #e6f0f0;">出勤日</th>
               <th style="background-color: #e6f0f0;">日勤</th>
               <th style="background-color: #e6f0f0;">早番</th>
@@ -26,6 +26,7 @@
               <th style="background-color: #e6f0f0;">訪問</th>
               <th style="background-color: #e6f0f0;">運転</th>
               <th style="background-color: #e6f0f0;">調理</th>
+              <th style="width: 120px; background-color: #e6f0f0;">日勤表示</th>
             </tr>
           </thead>
 
@@ -77,7 +78,7 @@
                     <% end %>
                   </td>
                   <td><%= staff.occupation&.name || "未設定" %></td>
-                  <td class="text-center" style="white-space: nowrap;">
+                  <td class="text-center small" style="white-space: nowrap;">
                     <% wdays = %w[月 火 水 木 金 土 日] %>
 
                     <% if staff.workday_constraint == "free" %>
@@ -117,6 +118,23 @@
                   <td><%= staff.can_visit ? "○" : "-" %></td>
                   <td><%= staff.can_drive ? "○" : "-" %></td>
                   <td><%= staff.can_cook  ? "○" : "-" %></td>
+                  <td class="text-start small" style="white-space: nowrap;">
+                    <% opts = staff.staff_day_time_options.sort_by { |o| [o.position.to_i, o.id.to_i] } %>
+
+                    <% if opts.any? %>
+                      <% opts.each do |opt| %>
+                        <div class="<%= opt.active ? '' : 'text-muted' %>">
+                          <%= staff.last_name %><%= opt.time_text.present? ? "(#{opt.time_text})" : "" %>
+
+                          <% if opt.is_default %>
+                            <span class="me-1">✓</span>
+                          <% end %>
+                        </div>
+                      <% end %>
+                    <% else %>
+                      <span class="text-muted">-</span>
+                    <% end %>
+                  </td>
                 </tr>
               <% end %>
             <% else %>
