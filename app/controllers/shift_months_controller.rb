@@ -4,7 +4,8 @@ class ShiftMonthsController < ApplicationController
   before_action :set_shift_month, only: [:settings, :update_settings, :update_daily,
                                         :generate_draft, :preview, :edit_draft, :confirm_draft, :show, :add_staff_holiday,
                                         :remove_staff_holiday, :update_weekday_requirements, :update_designation,
-                                        :remove_designation, :update_draft_assignment, :start_edit_from_confirmed]
+                                        :remove_designation, :update_draft_assignment, :start_edit_from_confirmed,
+                                        :export_excel]
   before_action :build_calendar_vars, only: [:settings, :preview, :edit_draft, :show]
 
   def new
@@ -778,6 +779,20 @@ class ShiftMonthsController < ApplicationController
 
     session[draft_token_session_key] = token
     redirect_to edit_draft_shift_month_path(@shift_month), notice: "確定シフトを下書きに複製して、手修正を開始しました。"
+  end
+
+  def export_excel
+    exporter = ShiftExports::MimosaTemplateExporter.new(shift_month: @shift_month)
+    xlsx_bin = exporter.call
+
+    filename = "shift_#{@shift_month.year}_#{format('%02d', @shift_month.month)}.xlsx"
+
+    send_data(
+      xlsx_bin,
+      filename: filename,
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      disposition: "attachment"
+    )
   end
 
   private

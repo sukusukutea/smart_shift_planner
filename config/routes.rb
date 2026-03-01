@@ -33,6 +33,8 @@ Rails.application.routes.draw do
       post :confirm_draft       # 確定してDB保存
       post :start_edit_from_confirmed # showページから手修正へ移動
       patch :update_draft_assignment
+
+      get :export_excel
     end
   end
 
