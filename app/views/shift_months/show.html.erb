@@ -1,6 +1,9 @@
 <% toolbar = capture do %>
   <div class="d-flex align-items-center gap-2 mb-3">
     <%= link_to "戻る", new_shift_month_path, class:"btn btn-sm btn-light border" %>
+    <%= button_to "手修正する", start_edit_from_confirmed_shift_month_path(@shift_month),
+              method: :post,
+              class: "btn btn-sm btn-primary" %>
   </div>
 <% end %>
 

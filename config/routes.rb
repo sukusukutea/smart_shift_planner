@@ -31,6 +31,7 @@ Rails.application.routes.draw do
       get  :preview             # シフト案表示ページへ
       get  :edit_draft
       post :confirm_draft       # 確定してDB保存
+      post :start_edit_from_confirmed # showページから手修正へ移動
       patch :update_draft_assignment
     end
   end
