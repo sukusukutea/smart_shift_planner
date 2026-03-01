@@ -4,7 +4,7 @@ class ShiftMonthsController < ApplicationController
   before_action :set_shift_month, only: [:settings, :update_settings, :update_daily,
                                         :generate_draft, :preview, :edit_draft, :confirm_draft, :show, :add_staff_holiday,
                                         :remove_staff_holiday, :update_weekday_requirements, :update_designation,
-                                        :remove_designation, :update_draft_assignment]
+                                        :remove_designation, :update_draft_assignment, :start_edit_from_confirmed]
   before_action :build_calendar_vars, only: [:settings, :preview, :edit_draft, :show]
 
   def new
@@ -748,6 +748,36 @@ class ShiftMonthsController < ApplicationController
     redirect_to preview_shift_month_path(@shift_month), alert: "日付形式が不正です"
   rescue ActiveRecord::RecordInvalid => e
     redirect_to preview_shift_month_path(@shift_month), alert: "保存に失敗しました： #{e.record.errors.full_messages.join(", ")}"
+  end
+
+  def start_edit_from_confirmed
+    token = SecureRandom.hex(8)
+
+    month_begin = Date.new(@shift_month.year, @shift_month.month, 1)
+    month_end   = month_begin.end_of_month
+
+    confirmed_scope =
+      @shift_month.shift_day_assignments.confirmed.where(date: month_begin..month_end)
+
+    ShiftDayAssignment.transaction do
+      # 既存draftを消す（多重編集の衝突を避ける）
+      @shift_month.shift_day_assignments.draft.delete_all
+
+      confirmed_scope.select(:id, :date, :shift_kind, :staff_id, :slot, :staff_day_time_option_id).find_each do |a|
+        @shift_month.shift_day_assignments.create!(
+          date: a.date,
+          shift_kind: a.shift_kind,
+          staff_id: a.staff_id,
+          slot: a.slot,
+          source: :draft,
+          draft_token: token,
+          staff_day_time_option_id: a.staff_day_time_option_id
+        )
+      end
+    end
+
+    session[draft_token_session_key] = token
+    redirect_to edit_draft_shift_month_path(@shift_month), notice: "確定シフトを下書きに複製して、手修正を開始しました。"
   end
 
   private
