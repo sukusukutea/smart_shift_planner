@@ -24,3 +24,6 @@ application.register("shift-edit", ShiftEditController)
 
 import NightPickerController from "./night_picker_controller"
 application.register("night-picker", NightPickerController)
+
+import UnsavedGuardController from "./unsaved_guard_controller"
+application.register("unsaved-guard", UnsavedGuardController)

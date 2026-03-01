@@ -1,5 +1,7 @@
 <% toolbar = capture do %>
-  <div class="d-flex align-items-center gap-2 mb-3" data-controller="left-sidebar">
+  <div class="d-flex align-items-center gap-2 mb-3"
+       data-controller="left-sidebar unsaved-guard"
+       data-unsaved-guard-dirty-value="true">
     <button type="button"
             class="btn btn-sm btn-outline-secondary"
             data-action="left-sidebar#toggle">
@@ -7,7 +9,11 @@
     </button>
 
     <%= link_to "戻る", settings_shift_month_path(@shift_month), class:"btn btn-sm btn-light border" %>
-    <%= button_to "保存して終了", confirm_draft_shift_month_path(@shift_month), method: :post, class: "btn btn-sm btn-secondary" %>
+    <%= button_to "保存して終了",
+          confirm_draft_shift_month_path(@shift_month),
+          method: :post,
+          class: "btn btn-sm btn-secondary",
+          data: { action: "click->unsaved-guard#markClean" } %>
   </div>
 <% end %>
 
