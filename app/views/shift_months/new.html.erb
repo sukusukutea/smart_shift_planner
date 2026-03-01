@@ -31,7 +31,13 @@
             </div>
 
             <div class="col-auto">
-              <%= f.submit "作成する", class: "btn btn-primary" %>
+              <%= f.submit "作成する",
+                    class: "btn btn-primary",
+                    data: (
+                      @shift_months_count.to_i >= 6 ?
+                        { turbo_confirm: "保存上限(６件)を超えているため、古いデータを自動削除して新しい月を作成します。よろしいですか？" } :
+                        {}
+                    ) %>
             </div>
           </div>
         <% end %>

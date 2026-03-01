@@ -11,6 +11,7 @@ class ShiftMonthsController < ApplicationController
   def new
     @shift_month = current_user.shift_months.new
     @recent_shift_months = current_user.shift_months.order(created_at: :desc).limit(6)
+    @shift_months_count  = current_user.shift_months.count
   end
 
   def show
