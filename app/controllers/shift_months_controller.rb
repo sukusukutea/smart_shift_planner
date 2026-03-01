@@ -10,7 +10,7 @@ class ShiftMonthsController < ApplicationController
 
   def new
     @shift_month = current_user.shift_months.new
-    @recent_shift_months = current_user.shift_months.order(year: :desc, month: :desc).limit(3)
+    @recent_shift_months = current_user.shift_months.order(created_at: :desc).limit(6)
   end
 
   def show
@@ -68,6 +68,9 @@ class ShiftMonthsController < ApplicationController
     if @shift_month.save
       @shift_month.copy_weekday_requirements_from_base!(user: current_user)
       @shift_month.copy_skill_requirements_from_base!(user: current_user)
+
+      prune_old_shift_months!(user: current_user, keep: 6)
+
       redirect_to settings_shift_month_path(@shift_month)
     else
       flash.now[:alert] = "作成に失敗しました。入力内容を確認してください。"
@@ -1026,5 +1029,11 @@ class ShiftMonthsController < ApplicationController
 
   def build_required_skill_by_date
     @dates.index_with { |date| @shift_month.required_skill_counts_for(date) }
+  end
+
+  def prune_old_shift_months!(user:, keep:)
+    extra = user.shift_months.order(created_at: :desc).offset(keep)
+
+    extra.destroy_all
   end
 end
