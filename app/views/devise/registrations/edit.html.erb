@@ -29,6 +29,9 @@
 
       <div class="mb-3">
         <%= f.label :password, "新しいパスワード" %>
+        <% if @minimum_password_length %>
+          <span class="text-muted">(<%= @minimum_password_length %>文字以上)</span>
+        <% end %>
         <%= f.password_field :password, autocomplete: "new-password", class: "form-control" %>
       </div>
 
