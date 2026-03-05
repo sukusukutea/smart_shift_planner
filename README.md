@@ -1,9 +1,9 @@
-# smart-shift-planner
+# Mimosa-Shift-Planner
 看護小規模多機能居宅介護施設向け　シフト自動化アプリ
 
 サービス概要
 看護小規模多機能居宅介護施設（以下略：看多機）は、「通い・泊まり・訪問介護・訪問看護」を一体的に提供する複合型サービスです。
-「smart-shift-planner」は、この多様な勤務形態に対応した看多機専用のシフト作成支援アプリです。
+「Mimosa-Shift-Planner」は、この多様な勤務形態に対応した看多機専用のシフト作成支援アプリです。
 
 このサービスへの思い・作りたい理由
 私が勤務している一つに、看多機があります。
@@ -98,7 +98,7 @@
 - AI提案（履歴学習）
 
 ## 画面遷移図
-参考Figma：https://www.figma.com/design/r1Jvlus70r5jMBNco6odXf/smart-shift-planner%E3%80%80%E7%94%BB%E9%9D%A2%E9%81%B7%E7%A7%BB%E5%9B%B3?node-id=0-1&t=ZQ7qy500AxCeb9Dr-1
+参考Figma：https://www.figma.com/design/r1Jvlus70r5jMBNco6odXf/Mimosa-Shift-Planner%E3%80%80%E7%94%BB%E9%9D%A2%E9%81%B7%E7%A7%BB%E5%9B%B3?node-id=0-1&t=IBPD42eYRsiax5aL-1
 
 ## 使用する技術スタック
 - プログラミング言語：Ruby 3.2
