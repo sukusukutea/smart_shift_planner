@@ -1,4 +1,8 @@
 ja:
+  activerecord:
+    attributes:
+      user:
+        current_password: "現在のパスワード"
   devise:
     registrations:
       signed_up: "新規登録が完了しました"

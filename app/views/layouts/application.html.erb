@@ -32,13 +32,28 @@
 
         <div class="d-flex align-items-center">
           <% if user_signed_in? %>
-            <span class="text-white me-3">
-              <%= current_user.name %> さん
-            </span>
+            <div class="text-white me-3"><%= current_user.organization&.name %></div>
+            <div class="dropdown me-2">
+              <button class="btn btn-outline-light btn-sm dropdown-toggle"
+                      type="button"
+                      data-bs-toggle="dropdown"
+                      aria-expanded="false">
+                <%= current_user.name %> さん
+              </button>
 
-            <%= button_to "ログアウト", destroy_user_session_path,
-                          method: :delete,
-                          class: "btn btn-outline-light btn-sm" %>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                  <%= link_to "アカウント編集", edit_user_registration_path, class: "dropdown-item" %>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                  <%= button_to "ログアウト", destroy_user_session_path,
+                                method: :delete,
+                                class: "dropdown-item",
+                                form: { data: { turbo: false } } %>
+                </li>
+              </ul>
+            </div>
           <% else %>
             <%= link_to "ログイン", new_user_session_path, class: "btn btn-outline-light btn-sm mx-1" %>
             <%= link_to "新規登録", new_user_registration_path, class: "btn btn-light btn-sm mx-1" %>
