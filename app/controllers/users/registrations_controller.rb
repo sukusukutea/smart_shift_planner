@@ -59,6 +59,31 @@ class Users::RegistrationsController < Devise::RegistrationsController
     end
   end
 
+  def update
+    self.resource = current_user
+
+    org_name = params[:user][:organization_name]&.strip
+
+    ActiveRecord::Base.transaction do
+      if org_name.present?
+        organization = Organization.find_or_create_by!(name: org_name)
+        resource.organization = organization
+      end
+
+      if params[:user][:password].present?
+        ok = resource.update_with_password(account_update_params)
+      else
+        ok = resource.update_without_password(account_update_params.except(:current_password))
+      end
+
+      raise ActiveRecord::RecordInvalid.new(resource) unless ok
+    end
+
+    redirect_to dashboard_path, notice: "アカウントを更新しました"
+  rescue ActiveRecord::RecordInvalid
+    render :edit, status: :unprocessable_entity
+  end
+
   private
 
   def sign_up_params
@@ -68,6 +93,17 @@ class Users::RegistrationsController < Devise::RegistrationsController
       :email,
       :password,
       :password_confirmation
+    )
+  end
+
+  def account_update_params
+    params.require(:user).permit(
+      :name,
+      :organization_name,
+      :email,
+      :password,
+      :password_confirmation,
+      :current_password
     )
   end
 end
