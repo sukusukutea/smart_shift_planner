@@ -293,6 +293,14 @@ module ShiftDrafts
 
       # 候補IDを取ってRuby側で「直近で働いていない順」→「勤務日数が少ない順」に並べて選ぶ
       candidate_ids = scope.pluck(:id)
+
+      if date.present? && kind == :early
+        candidate_ids =
+          candidate_ids.reject do |sid|
+            previous_day_late_assigned?(sid, date)
+          end
+      end
+
       candidate_ids = filter_ids_by_weekly_cap(candidate_ids, date) if date.present? && [:day, :early, :late].include?(kind)
 
       # 連続勤務5日→２休を強制（Timelineで判定）
@@ -608,6 +616,17 @@ module ShiftDrafts
       daily = @timeline.instance_variable_get(:@timeline)&.[](staff_id.to_i)
       return false if daily.blank?
       daily[date] == :night
+    end
+
+    def previous_day_late_assigned?(staff_id, date)
+      return false if staff_id.blank? || date.nil?
+      return false if @timeline.nil?
+
+      previous_day = date -1
+      daily = @timeline.instance_variable_get(:@timeline)&.[](staff_id.to_i)
+      return false if daily.blank?
+
+      daily[previous_day] == :late
     end
 
     def lock_after_double_night!(staff_id, date:, month_end:)
