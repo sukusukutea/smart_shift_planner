@@ -78,9 +78,12 @@
         ""
       end %>
 
+     <% requested_holiday =
+         Array((holiday_requests_by_date || {})[date]).any? { |request| request.staff_id.to_i == s.id.to_i } %>
+
     <% off_text =
         if selected == "off"
-          "(休)"
+          requested_holiday ? "(希望休)" : "(休)"
         else
           ""
         end %>

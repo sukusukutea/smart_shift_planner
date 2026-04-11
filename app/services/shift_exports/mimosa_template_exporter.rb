@@ -70,13 +70,21 @@ module ShiftExports
           assignments_hash: assignments_hash
         ).call
 
+      holiday_requests_by_date =
+        @shift_month.staff_holiday_requests
+                    .includes(:staff)
+                    .where(date: cal_begin..cal_end)
+                    .group_by(&:date)
+
       # ---- style indexes ----
       red_style_index = read_cell(sheet, 2, col_index("U"))&.style_index # U2
+      holiday_request_style_index = read_cell(sheet, 221, col_index("L"))&.style_index # L221
       base_date_style_index = read_cell(sheet, DATE_ROW_FIRST, MON_LEFT_COL)&.style_index
 
       # ※日付セルは「元の背景/罫線/中央揃え」を維持し、赤はフォントだけ差し替える
       # （職員セルも同じ戦略で赤字にする）
       @__font_only_cache = {}
+      @__fill_only_cache = {}
 
       # 日付セル
       dates.each do |date|
@@ -144,7 +152,8 @@ module ShiftExports
             ctx: ctx,
             staff_by_id: staff_by_id,
             sorted_staffs_by_row_key: sorted_staffs_by_row_key,
-            unassigned_by_date: unassigned_by_date
+            unassigned_by_date: unassigned_by_date,
+            holiday_requests_by_date: holiday_requests_by_date
           )
 
           # 夜勤列の表示行（文字＋赤フラグ）
@@ -161,7 +170,8 @@ module ShiftExports
             col: day_col,
             lines: day_lines,
             max_rows: limit,
-            red_style_index: red_style_index
+            red_style_index: red_style_index,
+            holiday_request_style_index: holiday_request_style_index
           )
 
           write_lines_to_column(
@@ -312,7 +322,7 @@ module ShiftExports
     # 表示行（文字＋赤フラグ）を作る
     # -----------------------------
     # 返り値: [{text:"...", red:true/false}, ...]
-    def build_day_lines(row_key:, date:, ctx:, staff_by_id:, sorted_staffs_by_row_key:, unassigned_by_date:)
+    def build_day_lines(row_key:, date:, ctx:, staff_by_id:, sorted_staffs_by_row_key:, unassigned_by_date:, holiday_requests_by_date:)
       day_rows   = ctx[:day_rows]
       early_rows = ctx[:early_rows]
       late_rows  = ctx[:late_rows]
@@ -350,11 +360,14 @@ module ShiftExports
               { text: s.last_name.to_s, red: false }
             end
           else
+            requested_holiday =
+              Array(holiday_requests_by_date[date]).any? { |request| request.staff_id.to_i == s.id.to_i }
+
             # 休み（night_relatedは(休)を付けず赤字名前のみ）
             if night_related_ids.include?(s.id.to_i)
-              { text: s.last_name.to_s, red: true }
+              { text: s.last_name.to_s, red: true, holiday_request: false }
             else
-              { text: "#{s.last_name}（休み）", red: true }
+              { text: "#{s.last_name}（休み）", red: true, holiday_request: requested_holiday }
             end
           end
         end
@@ -419,10 +432,13 @@ module ShiftExports
         next if staff.nil?
         next unless row_key_for(staff) == row_key
 
+        requested_holiday =
+          Array(holiday_requests_by_date[date]).any? { |request| request.staff_id.to_i == staff.id.to_i }
+
         if night_related_ids.include?(staff.id.to_i)
-          lines << { text: staff.last_name.to_s, red: true }
+          lines << { text: staff.last_name.to_s, red: true, holiday_request: false }
         else
-          lines << { text: "#{staff.last_name}（休み）", red: true }
+          lines << { text: "#{staff.last_name}（休み）", red: true, holiday_request: requested_holiday }
         end
       end
 
@@ -482,7 +498,7 @@ module ShiftExports
     # -----------------------------
     # Excel書き込み（style保持 + 赤はフォントのみ）
     # -----------------------------
-    def write_lines_to_column(book:, sheet:, start_row:, col:, lines:, max_rows:, red_style_index:)
+    def write_lines_to_column(book:, sheet:, start_row:, col:, lines:, max_rows:, red_style_index:, holiday_request_style_index: nil)
       # まず、テンプレの枠（max_rows）に対して“空欄クリア”しておく
       max_rows.times do |i|
         cell = ensure_cell(sheet, start_row + i, col)
@@ -494,11 +510,22 @@ module ShiftExports
       Array(lines).first(max_rows).each_with_index do |item, i|
         text = item[:text].to_s
         red  = item[:red] == true
+        holiday_request = item[:holiday_request] == true
 
         cell = ensure_cell(sheet, start_row + i, col)
         next unless cell
 
         cell.change_contents(text)
+
+        if holiday_request && holiday_request_style_index
+          base_idx = cell.style_index
+          fill_only_idx = build_fill_only_style_index(
+            book: book,
+            base_style_index: base_idx,
+            marker_style_index: holiday_request_style_index
+          )
+          cell.style_index = fill_only_idx if fill_only_idx
+        end
 
         if red && red_style_index
           base_idx = cell.style_index
@@ -543,6 +570,32 @@ module ShiftExports
       idx = stylesheet.cell_xfs.size - 1
 
       @__font_only_cache[key] = idx
+    end
+
+    def build_fill_only_style_index(book:, base_style_index:, marker_style_index:)
+      return nil if base_style_index.nil? || marker_style_index.nil?
+
+      key = [base_style_index.to_i, marker_style_index.to_i]
+      return @__fill_only_cache[key] if @__fill_only_cache.key?(key)
+
+      stylesheet = book.stylesheet
+      return nil unless stylesheet
+
+      base_xf   = stylesheet.cell_xfs[base_style_index]
+      marker_xf = stylesheet.cell_xfs[marker_style_index]
+      return nil if base_xf.nil? || marker_xf.nil?
+
+      marker_fill_id = marker_xf.fill_id
+      return nil if marker_fill_id.nil?
+
+      new_xf = base_xf.dup
+      new_xf.fill_id = marker_fill_id
+      new_xf.apply_fill = 1 if new_xf.respond_to?(:apply_fill=)
+
+      stylesheet.cell_xfs << new_xf
+      idx = stylesheet.cell_xfs.size - 1
+
+      @__fill_only_cache[key] = idx
     end
   end
 end

@@ -40,7 +40,7 @@
       <% requests = holiday_requests_by_date[date] || [] %>
       <% requests.each do |request| %>
         <% if row_key_for(request.staff) == occupation[:key] %>
-          <div class="holiday-in-slot"><%= "#{request.staff.last_name} 休" %></div>
+          <div class="holiday-in-slot"><%= "#{request.staff.last_name} 希望休" %></div>
         <% end %>
       <% end %>
     </div>
