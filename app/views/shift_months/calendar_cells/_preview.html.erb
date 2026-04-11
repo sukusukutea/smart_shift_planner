@@ -96,10 +96,15 @@
             <div class="small"><%= s.last_name %></div>
           <% end %>
         <% else %>
+          <% requested_holiday =
+              Array((holiday_requests_by_date || {})[date]).any? { |request| request.staff_id.to_i == s.id.to_i } %>
+
           <% if night_related_ids.include?(s.id.to_i) %>
             <div class="small text-danger"><%= s.last_name %></div>
           <% else %>
-            <div class="small text-danger"><%= s.last_name %>(休)</div>
+            <div class="small text-danger">
+              <%= s.last_name %><%= requested_holiday ? "(希望休)" : "(休)" %>
+            </div>
           <% end %>
         <% end %>
       <% end %>
@@ -170,7 +175,11 @@
           <% next if staff.nil? || !staff.active? %>
           <% next if night_related_ids.include?(staff.id.to_i) %>
           <% next unless row_key_for(staff) == row_key %>
-          <div class="small text-danger"><%= staff.last_name %>(休)</div>
+          <% requested_holiday =
+              Array((holiday_requests_by_date || {})[date]).any? { |request| request.staff_id.to_i == staff.id.to_i } %>
+          <div class="small text-danger">
+            <%= staff.last_name %><%= requested_holiday ? "(希望休)" : "(休)" %>
+          </div>
         <% end %>
       <% end %>
     <% end %>

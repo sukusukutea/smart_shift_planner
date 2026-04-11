@@ -411,6 +411,12 @@ class ShiftMonthsController < ApplicationController
     end
 
     prepare_calendar_page(assignments_hash: @draft)
+
+    @holiday_requests_by_date =
+      @shift_month.staff_holiday_requests
+                  .includes(:staff)
+                  .where(date: @calendar_begin..@calendar_end)
+                  .group_by(&:date)
   end
 
   def edit_draft
@@ -422,6 +428,12 @@ class ShiftMonthsController < ApplicationController
     end
 
     prepare_calendar_page(assignments_hash: @draft)
+
+    @holiday_requests_by_date =
+      @shift_month.staff_holiday_requests
+                  .includes(:staff)
+                  .where(date: @calendar_begin..@calendar_end)
+                  .group_by(&:date)
   end
 
   def update_draft_assignment
