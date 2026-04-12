@@ -307,9 +307,13 @@ class ShiftMonthsController < ApplicationController
 
     conflicts.delete_all
 
-    @shift_month.staff_holiday_requests.find_or_create_by!(staff: staff, date: date)
+    holiday_type = params[:holiday_type].presence || "admin_off"
 
-    redirect_to settings_shift_month_path(@shift_month, tab: "holiday", staff_id: staff.id), notice: "休日希望を追加しました"
+    request = @shift_month.staff_holiday_requests.find_or_initialize_by(staff: staff, date: date)
+    request.holiday_type = holiday_type
+    request.save!
+
+    redirect_to settings_shift_month_path(@shift_month, tab: "holiday", staff_id: staff.id), notice: "休日設定を追加しました"
   rescue ArgumentError
     redirect_to settings_shift_month_path(@shift_month, tab: "holiday", staff_id: params[:staff_id]), alert: "日付の形式が正しくありません"
   end
@@ -319,7 +323,7 @@ class ShiftMonthsController < ApplicationController
     staff_id = request.staff_id
     request.destroy!
 
-    redirect_to settings_shift_month_path(@shift_month, tab: "holiday", staff_id: staff_id), notice: "休日希望を削除しました"
+    redirect_to settings_shift_month_path(@shift_month, tab: "holiday", staff_id: staff_id), notice: "休日設定を削除しました"
   end
 
   def update_weekday_requirements
@@ -446,6 +450,7 @@ class ShiftMonthsController < ApplicationController
 
     date  = Date.iso8601(params.require(:date))
     kind_str = params.require(:kind).to_s
+    holiday_type = params[:holiday_type].presence
     staff_id = params.require(:staff_id).to_i
     ui_wday  = ShiftMonth.ui_wday(date)
 
@@ -493,7 +498,18 @@ class ShiftMonthsController < ApplicationController
 
         next_day = date + 1
         scope.where(date: next_day, staff_id: staff_id, shift_kind: %i[day early late]).delete_all
+
       elsif kind_str == "off"
+        holiday_type_for_save =
+          if %w[requested_off paid_leave].include?(holiday_type)
+            holiday_type
+          else
+            nil
+          end
+
+        # まず、その職員の当日勤務を全部外す
+        scope.where(date: date, staff_id: staff_id, shift_kind: %i[day early late night]).delete_all
+
         # 「夜勤なし」はstaff_idは0で来るため、当日nightに入っている職員をDBから拾う
         night_row = scope.find_by(date: date, shift_kind: :night)
         night_staff_id = night_row&.staff_id
@@ -539,6 +555,26 @@ class ShiftMonthsController < ApplicationController
               draft_token: token,
               staff_day_time_option_id: day_opt_id
             )
+          end
+        end
+
+        target_staff_id = night_staff_id.presence || staff_id
+
+        if target_staff_id.present? && target_staff_id.to_i > 0
+          existing_request = @shift_month.staff_holiday_requests.find_by(
+            staff_id: target_staff_id,
+            date: date
+          )
+
+          if holiday_type_for_save.present?
+            request = existing_request || @shift_month.staff_holiday_requests.new(
+              staff_id: target_staff_id,
+              date: date
+            )
+            request.holiday_type = holiday_type_for_save
+            request.save!
+          else
+            existing_request&.destroy
           end
         end
       else
