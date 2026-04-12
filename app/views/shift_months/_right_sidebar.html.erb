@@ -101,9 +101,20 @@
                         max: @month_end.iso8601,
                         class: "form-control form-control-sm" %>
                 </div>
-                <div>
-                  <%= submit_tag "+追加", class: "btn btn-sm btn-light border" %>
+
+                <div style="min-width: 90px;">
+                  <%= select_tag :holiday_type,
+                        options_for_select([
+                          ["休み", "admin_off"],
+                          ["希望休", "requested_off"],
+                          ["有休", "paid_leave"]
+                        ], "requested_off"),
+                        class: "form-select form-select-sm" %>
                 </div>
+              </div>
+
+              <div class="d-flex justify-content-end mt-2">
+                <%= submit_tag "+追加", class: "btn btn-sm btn-light border" %>
               </div>
             </div>
           <% end %>
@@ -115,7 +126,21 @@
               <ul class="list-unstyled small">
                 <% @selected_staff_holidays.each do |request| %>
                   <li class="d-flex justify-content-between align-items-center mb-1">
-                    <span><%= request.date.strftime("%-m/%-d") %></span>
+                    <span>
+                      <%= request.date.strftime("%-m/%-d") %>
+                      <% label =
+                           case request.holiday_type
+                           when "admin_off"
+                            "休み"
+                          when "requested_off"
+                            "希望休"
+                          when "paid_leave"
+                            "有休"
+                          else
+                            "休み"
+                          end %>
+                      <span class="ms-1 text-muted">(<%= label %>)</span>
+                    </span>
 
                     <%= button_to "削除",
                                   remove_staff_holiday_shift_month_path(@shift_month, request_id: request.id),

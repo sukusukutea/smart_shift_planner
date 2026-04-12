@@ -41,6 +41,7 @@ module ShiftDrafts
 
       total_days = date_keys.length
       worked_days = Hash.new(0)
+      paid_leave_counts = Hash.new(0)
 
       date_keys.each do |dkey|
         kinds = @draft[dkey] || {}
@@ -64,6 +65,13 @@ module ShiftDrafts
         end
       end
 
+
+      @shift_month.staff_holiday_requests
+                  .where(date: month_begin..month_end, holiday_type: :paid_leave)
+                  .find_each do |request|
+        paid_leave_counts[request.staff_id.to_i] += 1
+      end
+
       required_holidays = @shift_month.holiday_days.to_i
 
       staff_ids.sort_by { |sid|
@@ -72,7 +80,7 @@ module ShiftDrafts
       }
       .map { |sid|
         staff = @staff_by_id[sid]
-        holiday_count = total_days - worked_days[sid]
+        holiday_count = total_days - worked_days[sid] - paid_leave_counts[sid]
         is_free = staff.respond_to?(:workday_constraint) && staff.workday_constraint == "free"
         holiday_shortage = is_free && required_holidays > 0 && holiday_count.to_i < required_holidays
         weekly_shortage_weeks = weekly_shortage_weeks_for(staff, dates, dayish_by_staff_and_date)
@@ -85,6 +93,7 @@ module ShiftDrafts
           late:  counts[sid][:late],
           night: counts[sid][:night],
           holiday: holiday_count,
+          paid_leave: paid_leave_counts[sid],
           holiday_shortage: holiday_shortage,
           weekly_shortage: weekly_shortage,
           weekly_shortage_weeks: weekly_shortage_weeks

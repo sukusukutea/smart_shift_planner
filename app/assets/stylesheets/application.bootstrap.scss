@@ -170,11 +170,26 @@
   border-left: none;
 }
 
-.slot-day .holiday-in-slot {
-  font-size: 10px;
+.holiday-in-slot {
   line-height: 1.2;
   color: #dc3545;
   white-space: nowrap;
+  display: inline-block;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+.holiday-in-slot.holiday-admin-off {
+  background-color: #dbdbdb;
+}
+
+.holiday-in-slot.holiday-requested-off,
+.holiday-in-slot:not(.holiday-admin-off):not(.holiday-paid-leave) {
+  background-color: #facadb;
+}
+
+.holiday-in-slot.holiday-paid-leave {
+  background-color: #d3f8d3;
 }
 
 .occ-row-req .req-count {

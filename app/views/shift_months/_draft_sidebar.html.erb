@@ -10,6 +10,7 @@
         <th>遅番</th>
         <th>夜勤</th>
         <th>休日</th>
+        <th>有休</th>
       </tr>
     </thead>
     <tbody>
@@ -37,6 +38,7 @@
           <td class="<%= row[:holiday_shortage] ? 'bg-danger-subtle text-danger fw-bold' : '' %>">
             <%= row[:holiday] %>
           </td>
+          <td><%= row[:paid_leave] %></td>
         </tr>
       <% end %>
     </tbody>

@@ -78,20 +78,42 @@
         ""
       end %>
 
-     <% requested_holiday =
-         Array((holiday_requests_by_date || {})[date]).any? { |request| request.staff_id.to_i == s.id.to_i } %>
+     <% holiday_request =
+         Array((holiday_requests_by_date || {})[date]).find { |request| request.staff_id.to_i == s.id.to_i } %>
 
     <% off_text =
         if selected == "off"
-          requested_holiday ? "(希望休)" : "(休)"
+          case holiday_request&.holiday_type
+          when "requested_off"
+            "(希望休)"
+          when "paid_leave"
+            "(有休)"
+          else
+            "(休)"
+          end
         else
           ""
         end %>
     <% night_related_class = (selected == "night_related") ? "text-danger" : "" %>
+    <% holiday_css_class =
+     if selected == "off"
+       case holiday_request&.holiday_type
+       when "admin_off"
+         "holiday-in-slot holiday-admin-off"
+       when "requested_off"
+         "holiday-in-slot holiday-requested-off"
+       when "paid_leave"
+         "holiday-in-slot holiday-paid-leave"
+       else
+         ""
+       end
+     else
+       ""
+     end %>
 
     <div class="shift-edit-row" data-controller="shift-edit">
       <div class="shift-edit-display <%= (selected == "off") ? "is-off" : "" %>">
-        <span class="shift-edit-name <%= night_related_class %>"><%= s.last_name %><%= off_text %></span>
+        <span class="shift-edit-name <%= night_related_class %> <%= holiday_css_class %>"><%= s.last_name %><%= off_text %></span>
         <% if time_text.present? %>
           <span class="shift-edit-time"><%= time_text %></span>
         <% end %>
@@ -129,8 +151,16 @@
             <%= s.last_name %>(11-20)
           </option>
 
-          <option value="off" <%= "selected" if selected == "off" %>>
+          <option value="off" <%= "selected" if selected == "off" && holiday_request.blank? %>>
             <%= s.last_name %>(休)
+          </option>
+
+          <option value="off:requested_off" <%= "selected" if selected == "off" && holiday_request&.requested_off? %>>
+            <%= s.last_name %>(希望休)
+          </option>
+
+          <option value="off:paid_leave" <%= "selected" if selected == "off" && holiday_request&.paid_leave? %>>
+            <%= s.last_name %>(有休)
           </option>
         </select>
       <% end %>

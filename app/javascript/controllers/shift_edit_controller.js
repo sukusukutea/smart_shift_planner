@@ -15,16 +15,22 @@ export default class extends Controller {
     if (!display) return
 
     const nameBase = select.dataset.staffName || ""
-    const raw = select.value // "early" / "late" / "off" / "day:12"
-    const isOff = (raw === "off")
+    const raw = select.value // "early" / "late" / "off" / "off:requested_off" / "off:paid_leave" / "day:12"
 
     let kind = raw
+    let holidayType = null
     let staffDayTimeOptionId = null
     if (raw && raw.startsWith("day:")) {
       kind = "day"
       const parts = raw.split(":")
       staffDayTimeOptionId = parts[1] ? parseInt(parts[1], 10) : null
+    } else if (raw && raw.startsWith("off:")) {
+      kind = "off"
+      const parts = raw.split(":")
+      holidayType = parts[1] || null
     }
+
+    const isOff = (kind === "off")
 
     // 表示用の時間文字列（optionのdata-time-textを優先）
     let timeText = ""
@@ -43,7 +49,29 @@ export default class extends Controller {
       nameEl.className = "shift-edit-name"
       display.appendChild(nameEl)
     }
-    nameEl.textContent = `${nameBase}${isOff ? "(休)" : ""}`
+    let offLabel = ""
+    if (isOff) {
+      if (holidayType === "requested_off") offLabel = "(希望休)"
+      else if (holidayType === "paid_leave") offLabel = "(有休)"
+      else offLabel = "(休)"
+    }
+
+    nameEl.classList.remove(
+      "holiday-in-slot",
+      "holiday-admin-off",
+      "holiday-requested-off",
+      "holiday-paid-leave"
+    )
+
+    if (isOff) {
+      if (holidayType === "requested_off") {
+        nameEl.classList.add("holiday-in-slot", "holiday-requested-off")
+      } else if (holidayType === "paid_leave") {
+        nameEl.classList.add("holiday-in-slot", "holiday-paid-leave")
+      }
+    }
+
+    nameEl.textContent = `${nameBase}${offLabel}`
 
     let timeEl = display.querySelector(".shift-edit-time")
     if (timeText) {
@@ -57,7 +85,7 @@ export default class extends Controller {
       if (timeEl) timeEl.remove()
     }
 
-    this.queueSave(select, { kind, staffDayTimeOptionId })
+    this.queueSave(select, { kind, holidayType, staffDayTimeOptionId })
   }
 
   queueSave(select, payload) {
@@ -73,9 +101,10 @@ export default class extends Controller {
     const date = select.dataset.date
 
     const kind = payload && payload.kind ? payload.kind : select.value
+    const holidayType =
+      (payload && payload.holidayType) ? payload.holidayType : null
     const staffDayTimeOptionId =
       (payload && payload.staffDayTimeOptionId) ? payload.staffDayTimeOptionId : null
-
 
     const row = select.closest(".shift-edit-row")
     const display = row ? row.querySelector(".shift-edit-display") : null
@@ -99,6 +128,7 @@ export default class extends Controller {
           date: date,
           staff_id: staffId,
           kind: kind,
+          holiday_type: holidayType,
           staff_day_time_option_id: staffDayTimeOptionId
         })
       })

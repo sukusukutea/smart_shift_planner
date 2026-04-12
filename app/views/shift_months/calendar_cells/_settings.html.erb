@@ -39,9 +39,33 @@
 
       <% requests = holiday_requests_by_date[date] || [] %>
       <% requests.each do |request| %>
-        <% if row_key_for(request.staff) == occupation[:key] %>
-          <div class="holiday-in-slot"><%= "#{request.staff.last_name} 希望休" %></div>
-        <% end %>
+        <% next unless row_key_for(request.staff) == occupation[:key] %>
+
+        <% label =
+            case request.holiday_type
+            when "admin_off"
+              "休"
+            when "requested_off"
+              "希望休"
+            when "paid_leave"
+              "有休"
+            else
+              "休"
+            end %>
+
+        <% css_class =
+            case request.holiday_type
+            when "admin_off"
+              "holiday-in-slot holiday-admin-off"
+            when "requested_off"
+              "holiday-in-slot"
+            when "paid_leave"
+              "holiday-in-slot holiday-paid-leave"
+            else
+              "holiday-in-slot"
+            end %>
+
+        <div class="<%= css_class %>"><%= "#{request.staff.last_name} #{label}" %></div>
       <% end %>
     </div>
 
