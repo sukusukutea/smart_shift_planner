@@ -5,7 +5,8 @@ class ShiftMonthsController < ApplicationController
                                         :generate_draft, :preview, :edit_draft, :confirm_draft, :show, :add_staff_holiday,
                                         :remove_staff_holiday, :update_weekday_requirements, :update_designation,
                                         :remove_designation, :update_draft_assignment, :start_edit_from_confirmed,
-                                        :export_excel, :sync_weekday_requirements]
+                                        :export_excel, :sync_weekday_requirements, :add_month_time_option,
+                                        :set_default_month_time_option, :remove_month_time_option]
   before_action :build_calendar_vars, only: [:settings, :preview, :edit_draft, :show]
 
   def new
@@ -16,7 +17,17 @@ class ShiftMonthsController < ApplicationController
 
   def show
     scope = @shift_month.shift_day_assignments.confirmed.where(date: @month_begin..@month_end)
-    @saved = build_assignments_hash(scope.select(:id, :date, :shift_kind, :staff_id, :slot, :staff_day_time_option_id))
+    @saved = build_assignments_hash(
+      scope.select(
+        :id,
+        :date,
+        :shift_kind,
+        :staff_id,
+        :slot,
+        :staff_day_time_option_id,
+        :shift_month_time_option_id
+      )
+    )
 
     prepare_calendar_page(assignments_hash: @saved)
 
@@ -74,6 +85,11 @@ class ShiftMonthsController < ApplicationController
       @shift_month.copy_weekday_requirements_from_base!(user: current_user)
       @shift_month.copy_skill_requirements_from_base!(user: current_user)
 
+      @shift_month.shift_month_time_options.find_or_create_by!(shift_kind: :late, time_text: "11-20") do |option|
+        option.position = 1
+        option.is_default = true
+      end
+
       prune_old_shift_months!(user: current_user, keep: 6)
 
       redirect_to settings_shift_month_path(@shift_month)
@@ -93,6 +109,8 @@ class ShiftMonthsController < ApplicationController
     preload_staffs_for
     prepare_daily_tab_vars
     prepare_holiday_tab_vars
+    ensure_default_late_time_option!
+    prepare_month_tab_vars
     @weekday_requirements = build_weekday_requirements_hash
     @day_req = @shift_month.required_counts_for(@selected_date, shift_kind: :day)
     @day_skill_req = @shift_month.required_skill_counts_for(@selected_date)
@@ -318,6 +336,65 @@ class ShiftMonthsController < ApplicationController
     redirect_to settings_shift_month_path(@shift_month, tab: "holiday", staff_id: params[:staff_id]), alert: "日付の形式が正しくありません"
   end
 
+  def add_month_time_option
+    shift_kind = params[:shift_kind].presence || "late"
+    time_text = params[:time_text].to_s.strip
+
+    option = @shift_month.shift_month_time_options.new(
+      shift_kind: shift_kind,
+      time_text: time_text
+    )
+
+    max_position =
+      @shift_month.shift_month_time_options
+                  .where(shift_kind: shift_kind)
+                  .maximum(:position)
+
+    option.position = max_position.to_i + 1
+
+    if @shift_month.shift_month_time_options.where(shift_kind: shift_kind).none?
+      option.is_default = true
+    end
+
+    option.save!
+
+    redirect_to settings_shift_month_path(@shift_month, tab: "month"), notice: "表示時間を追加しました"
+  rescue ActiveRecord::RecordInvalid => e
+    redirect_to settings_shift_month_path(@shift_month, tab: "month"), alert: "追加に失敗しました：#{e.record.errors.full_messages.join(", ")}"
+  end
+
+  def set_default_month_time_option
+    option = @shift_month.shift_month_time_options.find(params[:option_id])
+
+    ShiftMonthTimeOption.transaction do
+      @shift_month.shift_month_time_options
+                  .where(shift_kind: option.shift_kind)
+                  .update_all(is_default: false)
+
+      option.update!(is_default: true)
+    end
+
+    redirect_to settings_shift_month_path(@shift_month, tab: "month"), notice: "初期値を更新しました"
+  rescue ActiveRecord::RecordNotFound
+    redirect_to settings_shift_month_path(@shift_month, tab: "month"), alert: "対象の表示時間が見つかりません"
+  rescue ActiveRecord::RecordInvalid => e
+    redirect_to settings_shift_month_path(@shift_month, tab: "month"), alert: "更新に失敗しました：#{e.record.errors.full_messages.join(", ")}"
+  end
+
+  def remove_month_time_option
+  option = @shift_month.shift_month_time_options.find(params[:option_id])
+
+  if option.is_default?
+    redirect_to settings_shift_month_path(@shift_month, tab: "month"), alert: "初期値は削除できません。先に別の表示時間を初期値にしてください"
+    return
+  end
+
+  option.destroy!
+  redirect_to settings_shift_month_path(@shift_month, tab: "month"), notice: "表示時間を削除しました"
+rescue ActiveRecord::RecordNotFound
+  redirect_to settings_shift_month_path(@shift_month, tab: "month"), alert: "対象の表示時間が見つかりません"
+end
+
   def remove_staff_holiday
     request = @shift_month.staff_holiday_requests.find(params[:request_id])
     staff_id = request.staff_id
@@ -375,6 +452,12 @@ class ShiftMonthsController < ApplicationController
     ShiftDayAssignment.transaction do
       @shift_month.shift_day_assignments.draft.delete_all # (多重タブの競合対策としてもう一度削除)
 
+      default_late_time_option_id =
+        @shift_month.shift_month_time_options
+                    .late
+                    .find_by(is_default: true)
+                    &.id
+
       draft_hash.each do |date_str, kinds_hash|
         date = Date.iso8601(date_str)
 
@@ -393,7 +476,8 @@ class ShiftMonthsController < ApplicationController
               staff_id: staff_id,
               slot: slot.to_i,
               source: :draft,
-              draft_token: token
+              draft_token: token,
+              shift_month_time_option_id: (kind == :late ? default_late_time_option_id : nil)
             )
           end
         end
@@ -431,6 +515,7 @@ class ShiftMonthsController < ApplicationController
       return
     end
 
+    ensure_default_late_time_option!
     prepare_calendar_page(assignments_hash: @draft)
 
     @holiday_requests_by_date =
@@ -461,6 +546,13 @@ class ShiftMonthsController < ApplicationController
         nil
       end
 
+    shift_month_time_option_id =
+      if params.key?(:shift_month_time_option_id) && params[:shift_month_time_option_id].present?
+        params[:shift_month_time_option_id].to_i
+      else
+        nil
+      end
+
     allowed = %w[day early late night off]
     unless allowed.include?(kind_str)
       render json: { ok: false, error: "kind is invalid" }, status: :unprocessable_entity
@@ -476,6 +568,14 @@ class ShiftMonthsController < ApplicationController
       ok = StaffDayTimeOption.where(id: staff_day_time_option_id, staff_id: staff_id, active: true).exists?
       unless ok
         render json: { ok: false, error: "staff_day_time_option_id is invalid" }, status: :unprocessable_entity
+        return
+      end
+    end
+
+    if kind_str == "late" && shift_month_time_option_id.present?
+      ok = @shift_month.shift_month_time_options.late.where(id: shift_month_time_option_id).exists?
+      unless ok
+        render json: { ok: false, error: "shift_month_time_option_id is invalid" }, status: :unprocessable_entity
         return
       end
     end
@@ -587,7 +687,7 @@ class ShiftMonthsController < ApplicationController
         max_slot = scope.where(date: date, shift_kind: kind).maximum(:slot)
         slot = max_slot.to_i + 1
 
-        opt_id =
+        day_opt_id =
           if kind == :day
             if staff_day_time_option_id.present?
               staff_day_time_option_id
@@ -603,6 +703,14 @@ class ShiftMonthsController < ApplicationController
             nil
           end
 
+        late_opt_id =
+          if kind == :late
+            shift_month_time_option_id.presence ||
+              @shift_month.shift_month_time_options.late.find_by(is_default: true)&.id
+          else
+            nil
+          end
+
         @shift_month.shift_day_assignments.create!(
           date: date,
           shift_kind: kind,
@@ -610,7 +718,8 @@ class ShiftMonthsController < ApplicationController
           slot: slot,
           source: :draft,
           draft_token: token,
-          staff_day_time_option_id: opt_id
+          staff_day_time_option_id: day_opt_id,
+          shift_month_time_option_id: late_opt_id
         )
       end
 
@@ -830,7 +939,7 @@ class ShiftMonthsController < ApplicationController
       # 既存draftを消す（多重編集の衝突を避ける）
       @shift_month.shift_day_assignments.draft.delete_all
 
-      confirmed_scope.select(:id, :date, :shift_kind, :staff_id, :slot, :staff_day_time_option_id).find_each do |a|
+      confirmed_scope.select(:id, :date, :shift_kind, :staff_id, :slot, :staff_day_time_option_id, :shift_month_time_option_id).find_each do |a|
         @shift_month.shift_day_assignments.create!(
           date: a.date,
           shift_kind: a.shift_kind,
@@ -838,7 +947,8 @@ class ShiftMonthsController < ApplicationController
           slot: a.slot,
           source: :draft,
           draft_token: token,
-          staff_day_time_option_id: a.staff_day_time_option_id
+          staff_day_time_option_id: a.staff_day_time_option_id,
+          shift_month_time_option_id: a.shift_month_time_option_id
         )
       end
     end
@@ -923,7 +1033,17 @@ class ShiftMonthsController < ApplicationController
 
   # draft用：selectを揃えてhash化（preview/edit/update/confirmで共通）
   def build_draft_hash(scope)
-    build_assignments_hash(scope.select(:id, :date, :shift_kind, :staff_id, :slot, :staff_day_time_option_id))
+    build_assignments_hash(
+      scope.select(
+        :id,
+        :date,
+        :shift_kind,
+        :staff_id,
+        :slot,
+        :staff_day_time_option_id,
+        :shift_month_time_option_id
+      )
+    )
   end
 
   def load_draft_for_calendar(require_token: false)
@@ -1027,6 +1147,11 @@ class ShiftMonthsController < ApplicationController
     @holiday_requests_by_date = @shift_month.staff_holiday_requests.includes(:staff).group_by(&:date)
   end
 
+  def prepare_month_tab_vars
+    @late_time_options =
+      @shift_month.shift_month_time_options.late.order(:position, :id)
+  end
+
   def build_weekday_requirements_hash
     hash = (0..6).index_with { { "nurse" => 0, "care" => 0 } } # ここで{ 0 => { "nurse" => 0, "care" => 0 }, ..}をつくる
 
@@ -1044,10 +1169,11 @@ class ShiftMonthsController < ApplicationController
     scope.find_each do |a|
       dkey = a.date.iso8601
       kind = a.shift_kind.to_s
-      h[dkey][kind] << { 
+      h[dkey][kind] << {
         "slot" => a.slot,
         "staff_id" => a.staff_id,
-        "staff_day_time_option_id" => a.staff_day_time_option_id
+        "staff_day_time_option_id" => a.staff_day_time_option_id,
+        "shift_month_time_option_id" => a.shift_month_time_option_id
       }
     end
 
@@ -1121,5 +1247,16 @@ class ShiftMonthsController < ApplicationController
                 .sort
 
     base_rows != month_rows
+  end
+
+  def ensure_default_late_time_option!
+    return if @shift_month.shift_month_time_options.late.exists?
+
+    @shift_month.shift_month_time_options.create!(
+      shift_kind: :late,
+      time_text: "11-20",
+      position: 1,
+      is_default: true
+    )
   end
 end

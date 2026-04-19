@@ -38,7 +38,6 @@ module ShiftExports
 
     # 早番/遅番の表示（showに合わせて固定）
     EARLY_TIME_TEXT = "730-1630"
-    LATE_TIME_TEXT  = "11-20"
 
     def initialize(shift_month:)
       @shift_month = shift_month
@@ -75,6 +74,12 @@ module ShiftExports
                     .includes(:staff)
                     .where(date: cal_begin..cal_end)
                     .group_by(&:date)
+
+      default_late_time_text = @shift_month.default_late_time_text
+      late_time_options_by_id =
+        @shift_month.shift_month_time_options
+                    .late
+                    .index_by(&:id)
 
       # ---- style indexes ----
       red_style_index = read_cell(sheet, 2, col_index("U"))&.style_index # U2
@@ -154,7 +159,9 @@ module ShiftExports
             staff_by_id: staff_by_id,
             sorted_staffs_by_row_key: sorted_staffs_by_row_key,
             unassigned_by_date: unassigned_by_date,
-            holiday_requests_by_date: holiday_requests_by_date
+            holiday_requests_by_date: holiday_requests_by_date,
+            default_late_time_text: default_late_time_text,
+            late_time_options_by_id: late_time_options_by_id
           )
 
           # 夜勤列の表示行（文字＋赤フラグ）
@@ -261,7 +268,7 @@ module ShiftExports
       scope =
         @shift_month.shift_day_assignments.confirmed
                    .where(date: month_begin..month_end)
-                   .select(:id, :date, :shift_kind, :staff_id, :slot, :staff_day_time_option_id)
+                   .select(:id, :date, :shift_kind, :staff_id, :slot, :staff_day_time_option_id, :shift_month_time_option_id)
 
       h = Hash.new { |hh, dkey| hh[dkey] = Hash.new { |hhh, kind| hhh[kind] = [] } }
 
@@ -271,7 +278,8 @@ module ShiftExports
         h[dkey][kind] << {
           "slot" => a.slot,
           "staff_id" => a.staff_id,
-          "staff_day_time_option_id" => a.staff_day_time_option_id
+          "staff_day_time_option_id" => a.staff_day_time_option_id,
+          "shift_month_time_option_id" => a.shift_month_time_option_id
         }
       end
 
@@ -325,7 +333,7 @@ module ShiftExports
     # 表示行（文字＋赤フラグ）を作る
     # -----------------------------
     # 返り値: [{text:"...", red:true/false}, ...]
-    def build_day_lines(row_key:, date:, ctx:, staff_by_id:, sorted_staffs_by_row_key:, unassigned_by_date:, holiday_requests_by_date:)
+    def build_day_lines(row_key:, date:, ctx:, staff_by_id:, sorted_staffs_by_row_key:, unassigned_by_date:, holiday_requests_by_date:, default_late_time_text:, late_time_options_by_id:)
       day_rows   = ctx[:day_rows]
       early_rows = ctx[:early_rows]
       late_rows  = ctx[:late_rows]
@@ -336,6 +344,7 @@ module ShiftExports
         staffs = Array(sorted_staffs_by_row_key[:care])
         assigned_kind_by_id = {}
         assigned_day_opt_by_id = {}
+        assigned_late_time_option_id_by_id = {}
 
         { day: day_rows, early: early_rows, late: late_rows }.each do |kind_sym, rows|
           Array(rows).each do |r|
@@ -345,6 +354,9 @@ module ShiftExports
             if kind_sym == :day
               opt_id = (r["staff_day_time_option_id"] || r[:staff_day_time_option_id]).to_i
               assigned_day_opt_by_id[sid] = (opt_id > 0 ? opt_id : nil)
+            elsif kind_sym == :late
+              late_opt_id = (r["shift_month_time_option_id"] || r[:shift_month_time_option_id]).to_i
+              assigned_late_time_option_id_by_id[sid] = (late_opt_id > 0 ? late_opt_id : nil)
             end
           end
         end
@@ -354,7 +366,9 @@ module ShiftExports
           if kind == :early
             { text: "#{s.last_name} #{EARLY_TIME_TEXT}", red: false }
           elsif kind == :late
-            { text: "#{s.last_name} #{LATE_TIME_TEXT}", red: false }
+            late_opt_id = assigned_late_time_option_id_by_id[s.id]
+            late_text = late_time_options_by_id[late_opt_id]&.time_text.presence || default_late_time_text
+            { text: "#{s.last_name} #{late_text}", red: false }
           elsif kind == :day
             t = day_time_text_for(staff: s, picked_opt_id: assigned_day_opt_by_id[s.id], date: date)
             if t.present?
@@ -413,7 +427,11 @@ module ShiftExports
         staff = staff_by_id[sid]
         next if staff.nil?
         next unless row_key_for(staff) == row_key
-        lines << { text: "#{staff.last_name} #{LATE_TIME_TEXT}", red: false }
+
+        late_opt_id = (r["shift_month_time_option_id"] || r[:shift_month_time_option_id]).to_i
+        late_text = late_time_options_by_id[late_opt_id]&.time_text.presence || default_late_time_text
+
+        lines << { text: "#{staff.last_name} #{late_text}", red: false }
         displayed_ids << sid
       end
 

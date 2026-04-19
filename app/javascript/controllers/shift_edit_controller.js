@@ -20,10 +20,16 @@ export default class extends Controller {
     let kind = raw
     let holidayType = null
     let staffDayTimeOptionId = null
+    let shiftMonthTimeOptionId = null
+
     if (raw && raw.startsWith("day:")) {
       kind = "day"
       const parts = raw.split(":")
       staffDayTimeOptionId = parts[1] ? parseInt(parts[1], 10) : null
+    } else if (raw && raw.startsWith("late:")) {
+      kind = "late"
+      const parts = raw.split(":")
+      shiftMonthTimeOptionId = parts[1] ? parseInt(parts[1], 10) : null
     } else if (raw && raw.startsWith("off:")) {
       kind = "off"
       const parts = raw.split(":")
@@ -38,7 +44,7 @@ export default class extends Controller {
     const optTime = selectedOpt ? selectedOpt.dataset.timeText : ""
 
     if (kind === "early") timeText = "(730-1630)"
-    if (kind === "late")  timeText = "(11-20)"
+    if (kind === "late" && optTime)  timeText = `(${optTime})`
     if (kind === "day" && optTime) timeText = `(${optTime})`
 
     display.classList.toggle("is-off", isOff)
@@ -85,7 +91,7 @@ export default class extends Controller {
       if (timeEl) timeEl.remove()
     }
 
-    this.queueSave(select, { kind, holidayType, staffDayTimeOptionId })
+    this.queueSave(select, { kind, holidayType, staffDayTimeOptionId, shiftMonthTimeOptionId })
   }
 
   queueSave(select, payload) {
@@ -105,6 +111,8 @@ export default class extends Controller {
       (payload && payload.holidayType) ? payload.holidayType : null
     const staffDayTimeOptionId =
       (payload && payload.staffDayTimeOptionId) ? payload.staffDayTimeOptionId : null
+    const shiftMonthTimeOptionId =
+      (payload && payload.shiftMonthTimeOptionId) ? payload.shiftMonthTimeOptionId : null
 
     const row = select.closest(".shift-edit-row")
     const display = row ? row.querySelector(".shift-edit-display") : null
@@ -129,7 +137,8 @@ export default class extends Controller {
           staff_id: staffId,
           kind: kind,
           holiday_type: holidayType,
-          staff_day_time_option_id: staffDayTimeOptionId
+          staff_day_time_option_id: staffDayTimeOptionId,
+          shift_month_time_option_id: shiftMonthTimeOptionId
         })
       })
 

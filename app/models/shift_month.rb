@@ -10,6 +10,7 @@ class ShiftMonth < ApplicationRecord
   has_many :shift_day_designations, dependent: :destroy
   has_many :shift_month_skill_requirements, dependent: :destroy
   has_many :shift_day_skill_requirements, dependent: :destroy
+  has_many :shift_month_time_options, dependent: :destroy
 
   validates :year, presence: true
   validates :month, presence: true
@@ -229,5 +230,16 @@ class ShiftMonth < ApplicationRecord
     return 2 if value >= 2
 
     value
+  end
+
+  def default_late_time_text
+    @default_late_time_text ||= begin
+      option =
+        shift_month_time_options
+          .late
+          .find_by(is_default: true)
+
+      option&.time_text.presence || "11-20"
+    end
   end
 end
