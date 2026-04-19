@@ -35,6 +35,9 @@ Rails.application.routes.draw do
       post :start_edit_from_confirmed # showページから手修正へ移動
       patch :update_draft_assignment
 
+      post :add_month_time_option
+      patch :set_default_month_time_option
+      delete :remove_month_time_option
       get :export_excel
     end
   end

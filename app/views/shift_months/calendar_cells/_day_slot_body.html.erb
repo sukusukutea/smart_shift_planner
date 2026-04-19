@@ -7,6 +7,9 @@
 %>
 
 <% ctx = shift_day_context(draft, date) %>
+<% late_time_options = shift_month.shift_month_time_options.late.order(:position, :id) %>
+<% late_time_options_by_id = late_time_options.index_by(&:id) %>
+<% default_late_time_option_id = late_time_options.find(&:is_default?)&.id %>
 <% day_rows   = ctx[:day_rows] %>
 <% early_rows = ctx[:early_rows] %>
 <% late_rows  = ctx[:late_rows] %>
@@ -19,6 +22,7 @@
 
   <% assigned_kind_by_id = {} %>
   <% assigned_day_time_option_id_by_id = {} %>
+  <% assigned_late_time_option_id_by_id = {} %>
 
   <% { day: day_rows, early: early_rows, late: late_rows }.each do |kind_sym, rows| %>
     <% Array(rows).each do |r| %>
@@ -30,6 +34,9 @@
       <% if kind_sym == :day %>
         <% opt_id = (r["staff_day_time_option_id"] || r[:staff_day_time_option_id]).to_i %>
         <% assigned_day_time_option_id_by_id[sid] = (opt_id > 0 ? opt_id : nil) %>
+      <% elsif kind_sym == :late %>
+        <% late_opt_id = (r["shift_month_time_option_id"] || r[:shift_month_time_option_id]).to_i %>
+        <% assigned_late_time_option_id_by_id[sid] = (late_opt_id > 0 ? late_opt_id : nil) %>
       <% end %>
     <% end %>
   <% end %>
@@ -59,7 +66,8 @@
       elsif kind == :early
         "early"
       elsif kind == :late
-        "late"
+        late_opt_id = assigned_late_time_option_id_by_id[s.id] || default_late_time_option_id
+        late_opt_id.present? ? "late:#{late_opt_id}" : "late"
       else
         night_related ? "night_related" : "off"
       end
@@ -68,8 +76,11 @@
     <% time_text =
       if selected == "early"
         "(730-1630)"
-      elsif selected == "late"
-        "(11-20)"
+      elsif selected.to_s.start_with?("late")
+        late_opt_id = selected.to_s.split(":")[1].to_i
+        late_opt = late_time_options_by_id[late_opt_id]
+        late_text = late_opt&.time_text.presence || shift_month.default_late_time_text
+        "(#{late_text})"
       elsif selected.to_s.start_with?("day:")
         picked_id = selected.split(":")[1].to_i
         picked = day_opts_for_select.find { |o| o.id.to_i == picked_id }
@@ -147,9 +158,15 @@
             <%= s.last_name %>(730-1630)
           </option>
 
-          <option value="late" data-time-text="11-20" <%= "selected" if selected == "late" %>>
-            <%= s.last_name %>(11-20)
-          </option>
+          <% late_time_options.each do |opt| %>
+            <% v = "late:#{opt.id}" %>
+            <option
+              value="<%= v %>"
+              data-time-text="<%= opt.time_text %>"
+              <%= "selected" if selected == v %>>
+              <%= s.last_name %>(<%= opt.time_text %>)
+            </option>
+          <% end %>
 
           <option value="off" <%= "selected" if selected == "off" && holiday_request.blank? %>>
             <%= s.last_name %>(休)
@@ -206,8 +223,10 @@
     <% staff = staff_by_id[sid] %>
     <% next if staff.nil? %>
     <% if row_key_for(staff) == row_key %>
+      <% late_opt_id = (row["shift_month_time_option_id"] || row[:shift_month_time_option_id]).to_i %>
+      <% late_time_text = late_time_options_by_id[late_opt_id]&.time_text.presence || shift_month.default_late_time_text %>
       <div class="small shift-line">
-        <%= staff.last_name %><span class="shift-time">11-20</span>
+        <%= staff.last_name %><span class="shift-time"><%= late_time_text %></span>
       </div>
     <% end %>
   <% end %>

@@ -7,6 +7,8 @@
 %>
 
 <% ctx = shift_day_context(draft, date) %>
+<% late_time_options_by_id =
+     shift_month.shift_month_time_options.late.index_by(&:id) %>
 <% day_rows   = ctx[:day_rows] %>
 <% early_rows = ctx[:early_rows] %>
 <% late_rows  = ctx[:late_rows] %>
@@ -54,6 +56,8 @@
 
       <% assigned_kind_by_id = {} %>
       <% assigned_day_time_option_id_by_id = {} %>
+      <% assigned_late_time_option_id_by_id = {} %>
+
       <% { day: day_rows, early: early_rows, late: late_rows }.each do |kind_sym, rows| %>
         <% Array(rows).each do |r| %>
           <% sid = (r["staff_id"] || r[:staff_id]).to_i %>
@@ -64,6 +68,9 @@
           <% if kind_sym == :day %>
             <% opt_id = (r["staff_day_time_option_id"] || r[:staff_day_time_option_id]).to_i %>
             <% assigned_day_time_option_id_by_id[sid] = (opt_id > 0 ? opt_id : nil) %>
+          <% elsif kind_sym == :late %>
+            <% late_opt_id = (r["shift_month_time_option_id"] || r[:shift_month_time_option_id]).to_i %>
+            <% assigned_late_time_option_id_by_id[sid] = (late_opt_id > 0 ? late_opt_id : nil) %>
           <% end %>
         <% end %>
       <% end %>
@@ -73,7 +80,9 @@
         <% if kind == :early %>
           <div class="small shift-line"><%= s.last_name %><span class="shift-time">730-1630</span></div>
         <% elsif kind == :late %>
-          <div class="small shift-line"><%= s.last_name %><span class="shift-time">11-20</span></div>
+          <% late_option_id = assigned_late_time_option_id_by_id[s.id] %>
+          <% late_time_text = late_time_options_by_id[late_option_id]&.time_text.presence || shift_month.default_late_time_text %>
+          <div class="small shift-line"><%= s.last_name %><span class="shift-time"><%= late_time_text %></span></div>
         <% elsif kind == :day %>
           <% ui_wday = ShiftMonth.ui_wday(date) %>
 
@@ -224,8 +233,10 @@
         <% staff = staff_by_id[sid] %>
         <% next if staff.nil? %>
         <% if row_key_for(staff) == row_key %>
+          <% late_opt_id = (row["shift_month_time_option_id"] || row[:shift_month_time_option_id]).to_i %>
+          <% late_time_text = late_time_options_by_id[late_opt_id]&.time_text.presence || shift_month.default_late_time_text %>
           <div class="small shift-line">
-            <%= staff.last_name %><span class="shift-time">11-20</span>
+            <%= staff.last_name %><span class="shift-time"><%= late_time_text %></span>
           </div>
         <% end %>
       <% end %>

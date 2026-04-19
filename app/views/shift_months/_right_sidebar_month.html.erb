@@ -1,0 +1,73 @@
+<div class="mb-3">
+  <p class="fw-bold small mb-2">遅番表示時間</p>
+  <div class="small text-muted mb-2">
+    月全体で使う遅番の表示時間を登録します。<br>
+    初期値はシフト作成時の遅番表示に使われます。
+  </div>
+
+  <div class="mt-2">
+    <label class="form-label small">時間登録</label>
+
+    <%= form_with url: add_month_time_option_shift_month_path(@shift_month),
+                  method: :post,
+                  local: true do %>
+      <%= hidden_field_tag :shift_kind, "late" %>
+
+      <div class="d-flex gap-2 align-items-end">
+        <div class="flex-grow-1">
+          <%= text_field_tag :time_text,
+                             nil,
+                             class: "form-control form-control-sm",
+                             placeholder: "例）11-20 / 12-21" %>
+        </div>
+        <div>
+          <%= submit_tag "+追加", class: "btn btn-sm btn-light border" %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>
+
+<hr class="my-3">
+
+<div class="mt-3">
+  <div class="small text-muted mb-2">登録済み</div>
+
+  <% if @late_time_options.any? %>
+    <ul class="list-unstyled small mb-0">
+      <% @late_time_options.each do |option| %>
+        <li class="d-flex justify-content-between align-items-center mb-2 gap-2">
+          <%= form_with url: set_default_month_time_option_shift_month_path(@shift_month),
+                        method: :patch,
+                        local: true,
+                        class: "m-0 flex-grow-1" do %>
+            <%= hidden_field_tag :option_id, option.id %>
+
+            <div class="form-check m-0">
+              <%= radio_button_tag :default_late_time_option,
+                                    option.id,
+                                    option.is_default?,
+                                    class: "form-check-input",
+                                    onchange: "this.form.requestSubmit()" %>
+              <label class="form-check-label">
+                <%= option.time_text %>
+                <% if option.is_default? %>
+                  <span class="text-muted">（初期値）</span>
+                <% end %>
+              </label>
+            </div>
+          <% end %>
+
+          <%= button_to "削除",
+                remove_month_time_option_shift_month_path(@shift_month, option_id: option.id),
+                method: :delete,
+                class: "btn btn-sm btn-outline-danger py-0 px-2",
+                form_class: "m-0",
+                disabled: option.is_default? %>
+        </li>
+      <% end %>
+    </ul>
+  <% else %>
+    <div class="small text-muted">まだ登録がありません</div>
+  <% end %>
+</div>
