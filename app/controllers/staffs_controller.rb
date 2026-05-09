@@ -4,12 +4,9 @@ class StaffsController < ApplicationController
   before_action :set_occupations, only: [:new, :create, :edit, :update]
 
   def index
-    @staffs = current_user.staffs.includes(:occupation, :staff_workable_wdays, :staff_unworkable_wdays, :staff_day_time_options).order(:last_name_kana, :first_name_kana) # orderはカナ順の表示
-    @used_staff_ids = 
-      ShiftDayAssignment.where(staff_id: @staffs.select(:id))
-                        .distinct
-                        .pluck(:staff_id)
-                        .to_set
+    @staffs = current_user.staffs
+                          .includes(:occupation, :staff_workable_wdays, :staff_unworkable_wdays, :staff_day_time_options)
+                          .order(:last_name_kana, :first_name_kana) # orderはカナ順の表示
   end
 
   def new
@@ -65,13 +62,8 @@ class StaffsController < ApplicationController
   end
 
   def destroy
-    if @staff.shift_day_assignments.exists?
-      @staff.update!(active: false)
-      redirect_to staffs_path, notice: "過去のシフトに使用されているため、退職（無効化）にしました"
-    else
-      @staff.destroy!
-      redirect_to staffs_path, notice: "職員を削除しました"
-    end
+    @staff.destroy!
+    redirect_to staffs_path, notice: "職員を削除しました"
   end
 
   def restore

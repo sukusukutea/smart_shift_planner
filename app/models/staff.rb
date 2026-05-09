@@ -1,9 +1,10 @@
 class Staff < ApplicationRecord
   belongs_to :occupation
   belongs_to :user
-  has_many :shift_day_assignments, dependent: :restrict_with_exception # 間違ってdestroyしてもRails側で止める
+  has_many :shift_day_assignments, dependent: :destroy
   has_many :staff_workable_wdays, dependent: :destroy
-  has_many :shift_day_designations, dependent: :restrict_with_exception
+  has_many :shift_day_designations, dependent: :destroy
+  has_many :staff_holiday_requests, dependent: :destroy
   has_many :staff_unworkable_wdays, dependent: :destroy
   has_many :staff_day_time_options, -> { order(:position) }, dependent: :destroy
   has_one  :default_day_time_option,
