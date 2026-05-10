@@ -1,6 +1,6 @@
 class StaffsController < ApplicationController
   before_action :authenticate_user!
-  before_action :set_staff, only: [:edit, :update, :destroy, :restore]
+  before_action :set_staff, only: [:edit, :update, :destroy, :leave, :restore]
   before_action :set_occupations, only: [:new, :create, :edit, :update]
 
   def index
@@ -64,6 +64,11 @@ class StaffsController < ApplicationController
   def destroy
     @staff.destroy!
     redirect_to staffs_path, notice: "職員を削除しました"
+  end
+
+  def leave
+    @staff.update!(active: false)
+    redirect_to staffs_path, notice: "職員を休職にしました（休職設定中、シフト作成でこの職員は使われなくなります）"
   end
 
   def restore

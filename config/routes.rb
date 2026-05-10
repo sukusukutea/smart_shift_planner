@@ -9,6 +9,7 @@ Rails.application.routes.draw do
   get 'dashboard', to: 'dashboards#index'
   resources :staffs, only: [:index, :new, :create, :edit, :update, :destroy] do
     member do
+      patch :leave
       patch :restore
     end
   end
