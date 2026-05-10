@@ -9,23 +9,25 @@ export default class extends Controller {
     this.isDown = false
     this.startX = 0
     this.startScrollLeft = 0
+    this.scrollTarget = this.element.closest(".shift-calendar-viewport")
   }
 
   down(event) {
-    // 右クリックやフォーム要素上のドラッグは無視したい場合はここで制御できる
+    if (!this.scrollTarget) return
+
     this.isDown = true
     this.element.classList.add("is-dragging")
 
     this.startX = event.pageX
-    this.startScrollLeft = this.element.scrollLeft
+    this.startScrollLeft = this.scrollTarget.scrollLeft
   }
 
   move(event) {
-    if (!this.isDown) return
-    event.preventDefault() // 文字選択を抑止
+    if (!this.isDown || !this.scrollTarget) return
+    event.preventDefault()
 
     const dx = event.pageX - this.startX
-    this.element.scrollLeft = this.startScrollLeft - dx * this.speedValue
+    this.scrollTarget.scrollLeft = this.startScrollLeft - dx * this.speedValue
   }
 
   up() {

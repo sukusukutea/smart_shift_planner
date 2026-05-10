@@ -4,13 +4,28 @@
       <%= render "layouts/sidebar" %>
     </div>
 
-    <div id="main-content" class="col-md-8 col-lg-8 p-4 overflow-auto">
+    <div id="main-content" class="col-md-8 col-lg-8 p-4 d-flex flex-column"
+        style="height: 100vh;"
+        data-controller="sync-scroll">
       <%= toolbar %>
 
-      <div class="shift-calendar"
-           data-controller="drag-scroll"
-           data-action="mousedown->drag-scroll#down mousemove->drag-scroll#move mouseup->drag-scroll#up mouseleave->drag-scroll#leave">
-        <%= yield %>
+      <div class="shift-calendar-area flex-grow-1 d-flex flex-column overflow-hidden" style="min-height: 0;">
+        <div class="shift-calendar-sticky-scroll"
+            data-sync-scroll-target="sticky"
+            data-action="scroll->sync-scroll#scrollSticky">
+          <div class="shift-calendar-sticky-scroll-inner"
+              data-sync-scroll-target="stickyInner"></div>
+        </div>
+
+        <div class="shift-calendar-viewport flex-grow-1 overflow-auto"
+            data-sync-scroll-target="main"
+            data-action="scroll->sync-scroll#scrollMain">
+          <div class="shift-calendar"
+              data-controller="drag-scroll"
+              data-action="mousedown->drag-scroll#down mousemove->drag-scroll#move mouseup->drag-scroll#up mouseleave->drag-scroll#leave">
+            <%= yield %>
+          </div>
+        </div>
       </div>
     </div>
 

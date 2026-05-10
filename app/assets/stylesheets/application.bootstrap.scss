@@ -7,9 +7,7 @@
 
 /* カレンダー全体を横スクロールにする */
 .shift-calendar {
-  overflow-x: auto;
-  overflow-y: visible;
-  -webkit-overflow-scrolling: touch;
+  width: 100%;
   cursor: grab;
 }
 
@@ -18,6 +16,7 @@
 }
 
 .shift-calendar-month {
+  width: max-content;
   min-width: 1200px;
   border-collapse: collapse;
   table-layout: fixed;
@@ -44,6 +43,44 @@
 
 .day-slots, .day-kinds, .slot, .kcell {
   min-width: 0;
+}
+
+/* 画面内で見え続ける横スクロールバー */
+.shift-calendar-sticky-scroll {
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 18px;
+  background: #fff;
+  border-top: 1px solid #ddd;
+  border-bottom: 1px solid #ddd;
+}
+
+/* スクロール幅だけ持たせるダミー */
+.shift-calendar-sticky-scroll-inner {
+  height: 1px;
+}
+
+#main-content {
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.shift-calendar-area {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.shift-calendar-viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* =====================================================
