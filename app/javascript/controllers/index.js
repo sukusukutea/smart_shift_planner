@@ -30,3 +30,6 @@ application.register("unsaved-guard", UnsavedGuardController)
 
 import DayoptWdaysController from "./dayopt_wdays_controller"
 application.register("dayopt-wdays", DayoptWdaysController)
+
+import SyncScrollController from "./sync_scroll_controller"
+application.register("sync-scroll", SyncScrollController)
